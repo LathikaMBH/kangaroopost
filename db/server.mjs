@@ -3,7 +3,7 @@ import EmbeddedPostgres from 'embedded-postgres';
 import fs from 'node:fs';
 
 const PORT = Number(process.env.PG_PORT || 5432);
-const DB = process.env.PG_DATABASE || 'papertrail';
+const DB = process.env.PG_DATABASE || 'kangaroopost';
 const pg = new EmbeddedPostgres({
   databaseDir: './data', user: 'postgres', password: 'postgres', port: PORT, persistent: true,
 });

@@ -1,7 +1,7 @@
 import axios from 'axios';
 const api = axios.create({ baseURL: '/api' });
 api.interceptors.request.use(cfg => {
-  const t = localStorage.getItem('pt_token');
+  const t = localStorage.getItem('kp_token');
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
   return cfg;
 });

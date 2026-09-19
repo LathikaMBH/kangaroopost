@@ -8,8 +8,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('pt_token');
-    const saved = localStorage.getItem('pt_user');
+    const token = localStorage.getItem('kp_token');
+    const saved = localStorage.getItem('kp_user');
     if (token && saved) {
       try { setUser(JSON.parse(saved)); } catch {}
     }
@@ -18,15 +18,15 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const data = await api.login({ email, password });
-    localStorage.setItem('pt_token', data.token);
-    localStorage.setItem('pt_user', JSON.stringify(data.user));
+    localStorage.setItem('kp_token', data.token);
+    localStorage.setItem('kp_user', JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
   };
 
   const logout = () => {
-    localStorage.removeItem('pt_token');
-    localStorage.removeItem('pt_user');
+    localStorage.removeItem('kp_token');
+    localStorage.removeItem('kp_user');
     setUser(null);
   };
 

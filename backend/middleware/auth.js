@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'papertrail_secret_2024';
+const { JWT_SECRET } = require('../config');
 
 function auth(req, res, next) {
   const header = req.headers.authorization;

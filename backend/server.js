@@ -3,17 +3,22 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { init } = require('./database');
+const helmet = require('helmet');
+const jwt = require('jsonwebtoken');
+const { CORS_ORIGINS, JWT_SECRET } = require('./config');
+const { init, queries } = require('./database');
 
 const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: ['https://papertrail-rauma.netlify.app', 'http://localhost:3000'], credentials: true }
+  cors: { origin: CORS_ORIGINS, credentials: true }
 });
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors({ origin: ['https://papertrail-rauma.netlify.app', 'http://localhost:3000'], credentials: true }));
+app.set('trust proxy', 1); // behind Render/Netlify: use the real client IP (rate limiting)
+app.use(helmet());
+app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json());
 
 // Attach io to every request so route handlers can emit events
@@ -35,13 +40,28 @@ app.use((err, _req, res, _next) => {
 });
 
 // ── Socket.io ─────────────────────────────────────────────────────────────────
+// Only signed-in users may connect (the browser sends its login token)
+io.use((socket, next) => {
+  try { socket.user = jwt.verify(socket.handshake.auth?.token || '', JWT_SECRET); next(); }
+  catch { next(new Error('unauthorized')); }
+});
+
 io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
 
   // Join a room for a specific route (master + rider both join)
-  socket.on('join:route', (routeId) => {
-    socket.join(`route_${routeId}`);
-    console.log(`   → joined room route_${routeId}`);
+  // Admin: any route. Route owner: their own routes. Rider: the route assigned to them.
+  socket.on('join:route', async (routeId) => {
+    try {
+      const route = await queries.getRouteById(routeId);
+      const u = socket.user;
+      const allowed = route && (u.role === 'admin'
+        || (u.role === 'route_owner' && route.owner_id === u.id)
+        || (u.role === 'rider' && route.rider_id === u.id));
+      if (!allowed) return;
+      socket.join(`route_${routeId}`);
+      console.log(`   → joined room route_${routeId}`);
+    } catch (e) { console.error('join:route failed', e.message); }
   });
 
   socket.on('disconnect', () => {
@@ -53,7 +73,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 4000;
 init().then(() => {
   server.listen(PORT, () => {
-    console.log(`\n🚀 PaperTrail backend running on http://localhost:${PORT}`);
+    console.log(`\n🚀 KangarooPost backend running on http://localhost:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
   });
 }).catch(err => {
