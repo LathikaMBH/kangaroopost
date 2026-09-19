@@ -99,7 +99,8 @@ kangaroopost/
 ├── db/
 │   ├── server.mjs             # Starts a local PostgreSQL server (embedded-postgres)
 │   └── data/                  # Local database files (not committed)
-├── start.sh                   # Starts database + backend + frontend together
+├── dev.sh                     # Local dev only: starts database + backend + frontend together
+├── package.json               # Root install/start for hosts that build the repo root (installs + starts backend/)
 └── README.md
 ```
 
@@ -222,7 +223,7 @@ delivery tracking keep working either way; only the map picture and tap-to-pin a
 From the project root, in Git Bash / macOS / Linux:
 
 ```bash
-./start.sh
+./dev.sh
 ```
 
 This installs missing dependencies, then starts the database, backend (port 4000) and
@@ -359,7 +360,7 @@ The browser talks to the backend directly, using the address in `VITE_API_URL`.
 
 ### 2. Backend service
 Open the backend service → **Settings**:
-- **Root Directory:** `backend`
+- **Root Directory:** `backend` (recommended). If it is left empty the repo-root `package.json` installs and starts the backend anyway
 - **Start command:** `npm start` (Railway normally detects this)
 - **Healthcheck path:** `/api/health`
 - **Networking → Generate Domain** — this is your backend address (e.g. `https://xxxx.up.railway.app`)

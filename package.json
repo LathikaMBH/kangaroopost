@@ -1,0 +1,10 @@
+{
+  "name": "kangaroopost",
+  "private": true,
+  "description": "KangarooPost root. Lets hosts that build the repository root (e.g. Railway without a Root Directory) install and start the backend.",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "postinstall": "cd backend && npm install --omit=dev",
+    "start": "cd backend && npm start"
+  }
+}
