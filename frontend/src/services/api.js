@@ -1,6 +1,5 @@
 import axios from 'axios';
-const BACKEND = import.meta.env.VITE_API_URL || '';
-const api = axios.create({ baseURL: `${BACKEND}/api` });
+const api = axios.create({ baseURL: '/api' });
 api.interceptors.request.use(cfg => {
   const t = localStorage.getItem('pt_token');
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
@@ -16,6 +15,7 @@ export default {
   updateOwner:   (id, d)    => api.put(`/users/owners/${id}`, d),
   deleteOwner:   (id)       => api.delete(`/users/owners/${id}`),
   getOwnerRiders:(id)       => api.get(`/users/owners/${id}/riders`),
+  resetPassword: (kind, id, password) => api.post(`/users/${kind}/${id}/password`, { password }), // kind: 'owners' | 'riders'
   // Riders (owner)
   getRiders:     ()         => api.get('/users/riders'),
   createRider:   (d)        => api.post('/users/riders', d),

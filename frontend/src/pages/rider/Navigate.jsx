@@ -1,23 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { InfoWindow } from '@vis.gl/react-google-maps';
+import MapCanvas, { MapFollow, CircleMarker, DotMarker, RouteLine, RadiusCircle } from '../../components/GoogleMapView';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import api from '../../services/api';
 import { getDistance, PROXIMITY_METRES } from '../../services/gps';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
 
-const makeIcon=(color,label,size=32)=>L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2.5px solid white;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:${size<28?10:12}px;box-shadow:0 2px 8px rgba(0,0,0,0.4)">${label}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
-const riderIcon=L.divIcon({className:'',html:`<div style="width:24px;height:24px;border-radius:50%;background:#4285F4;border:3px solid white;box-shadow:0 0 0 4px rgba(66,133,244,0.25)"></div>`,iconSize:[24,24],iconAnchor:[12,12]});
 
-function MapFollow({pos,follow}){const map=useMap();const first=useRef(true);useEffect(()=>{if(!pos||!follow)return;if(first.current){map.setView(pos,17);first.current=false;}else map.panTo(pos,{animate:true,duration:0.5});},[pos,follow]);return null;}
 
 const S={IDLE:'idle',RUNNING:'running',PAUSED:'paused',DONE:'done'};
 
@@ -27,6 +18,7 @@ export default function RiderNavigate(){
   const[status,setStatus]=useState(S.IDLE);const[riderPos,setRiderPos]=useState(null);
   const[nextIdx,setNextIdx]=useState(0);const[delivered,setDelivered]=useState(new Set());
   const[waitingApt,setWaitingApt]=useState(false);const[toast,setToast]=useState(null);
+  const[openId,setOpenId]=useState(null);
   const watchRef=useRef(null);const pingRef=useRef(null);const processingRef=useRef(false);const pausedRef=useRef(false);const stopsRef=useRef([]);
 
   useEffect(()=>{api.getRoute(routeId).then(r=>{setRoute(r);setStops(r.stops||[]);stopsRef.current=r.stops||[];});if(socket)socket.emit('join:route',routeId);return()=>stopGPS();},[routeId]);
@@ -69,6 +61,7 @@ export default function RiderNavigate(){
   const doneLine=stops.slice(0,nextIdx+1).map(s=>[s.lat,s.lng]);
   const remLine=stops.slice(nextIdx).map(s=>[s.lat,s.lng]);
   const isPaused=status===S.PAUSED;
+  const openStop=stops.find(s=>s.id===openId);
 
   if(status===S.DONE)return(
     <div className="screen" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'0 24px 60px',textAlign:'center'}}>
@@ -103,15 +96,15 @@ export default function RiderNavigate(){
       </div>
 
       <div style={{flex:'0 0 42%',margin:'0 22px',borderRadius:16,overflow:'hidden',border:`2px solid ${isPaused?'#F59E0B88':'#C8C4BC'}`,flexShrink:0,position:'relative'}}>
-        <MapContainer center={riderPos||[stops[0]?.lat||61.1282,stops[0]?.lng||21.5117]} zoom={16} style={{height:'100%',width:'100%'}} zoomControl={false}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
+        <MapCanvas center={riderPos||[stops[0]?.lat||61.1282,stops[0]?.lng||21.5117]} zoom={16}>
           <MapFollow pos={riderPos} follow={status===S.RUNNING}/>
-          {doneLine.length>1&&<Polyline positions={doneLine} color="#22A05B" weight={5} opacity={0.85}/>}
-          {remLine.length>1&&<Polyline positions={remLine} color="#4285F4" weight={3} opacity={0.3} dashArray="8 5"/>}
-          {nextStop&&status===S.RUNNING&&!waitingApt&&nextStop.type==='mailbox'&&<Circle center={[nextStop.lat,nextStop.lng]} radius={PROXIMITY_METRES} color="#4285F4" fillOpacity={0.08} weight={2} dashArray="4 4"/>}
-          {stops.map((s,i)=>{const isDone=delivered.has(s.id);const isCurr=i===nextIdx&&status!==S.IDLE;const color=isDone?'#22A05B':isCurr?(s.type==='apartment'?'#F59E0B':'#4285F4'):'#888';return<Marker key={s.id} position={[s.lat,s.lng]} icon={makeIcon(color,isDone?'✓':i+1,isCurr?36:28)}><Popup>{s.address}<br/><small>{s.type}</small></Popup></Marker>;})}
-          {riderPos&&<Marker position={riderPos} icon={riderIcon}><Popup>📍 You</Popup></Marker>}
-        </MapContainer>
+          <RouteLine path={doneLine} color="#22A05B" weight={5} opacity={0.85}/>
+          <RouteLine path={remLine} color="#4285F4" weight={3} opacity={0.3} dashed/>
+          {nextStop&&status===S.RUNNING&&!waitingApt&&nextStop.type==='mailbox'&&<RadiusCircle center={[nextStop.lat,nextStop.lng]} radius={PROXIMITY_METRES} color="#4285F4"/>}
+          {stops.map((s,i)=>{const isDone=delivered.has(s.id);const isCurr=i===nextIdx&&status!==S.IDLE;const color=isDone?'#22A05B':isCurr?(s.type==='apartment'?'#F59E0B':'#4285F4'):'#888';return<CircleMarker key={s.id} position={[s.lat,s.lng]} color={color} label={isDone?'✓':i+1} size={isCurr?36:28} onClick={()=>setOpenId(s.id)}/>;})}
+          {openStop&&<InfoWindow position={{lat:openStop.lat,lng:openStop.lng}} pixelOffset={[0,-18]} onCloseClick={()=>setOpenId(null)}><div style={{color:'#222',fontSize:13}}>{openStop.address}<br/><small>{openStop.type}</small></div></InfoWindow>}
+          {riderPos&&<DotMarker position={riderPos} size={24}/>}
+        </MapCanvas>
         {isPaused&&<div style={{position:'absolute',inset:0,background:'rgba(14,9,48,0.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:1000}}><i className="ti ti-player-pause-filled" style={{fontSize:48,color:'#F59E0B',marginBottom:8}}/><div style={{color:'#F59E0B',fontWeight:700,fontSize:16}}>GPS Paused</div><div style={{color:'#B8A4F8',fontSize:12,marginTop:4}}>Map tracking stopped</div></div>}
       </div>
 

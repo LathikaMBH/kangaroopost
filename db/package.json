@@ -1,0 +1,1 @@
+{"name":"papertrail-local-postgres","private":true,"version":"1.0.0","type":"module","scripts":{"start":"node server.mjs"},"dependencies":{"embedded-postgres":"^18.4.0-beta.17"}}

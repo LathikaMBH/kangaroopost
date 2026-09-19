@@ -1,44 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { InfoWindow } from '@vis.gl/react-google-maps';
 import api from '../../services/api';
+import MapCanvas, { MapFocus, CircleMarker, DotMarker, RouteLine } from '../../components/GoogleMapView';
 
-// Fix Leaflet default icons
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
-
-// Custom marker icons
-const makeIcon = (color, label) => L.divIcon({
-  className: '',
-  html: `<div style="width:32px;height:32px;border-radius:50%;background:${color};border:2.5px solid white;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.35)">${label}</div>`,
-  iconSize: [32,32], iconAnchor: [16,16],
-});
-
-const mailboxIcon = (n) => makeIcon('#7C5CEA', n);
-const aptIcon     = (n) => makeIcon('#F59E0B', n);
-const gpsIcon = L.divIcon({
-  className: '',
-  html: `<div style="width:22px;height:22px;border-radius:50%;background:#4285F4;border:3px solid white;box-shadow:0 0 0 3px rgba(66,133,244,0.3)"></div>`,
-  iconSize: [22,22], iconAnchor: [11,11],
-});
-
-// Component that re-centres map when GPS pos changes
-function MapCenterer({ pos }) {
-  const map = useMap();
-  useEffect(() => { if (pos) map.flyTo(pos, map.getZoom(), { duration:0.8 }); }, [pos]);
-  return null;
-}
-
-// Click handler
-function MapClickHandler({ onMapClick }) {
-  useMapEvents({ click: e => onMapClick(e.latlng) });
-  return null;
-}
+const RAUMA = [61.1282, 21.5117]; // default map centre
 
 export default function CreateRoute() {
   const navigate = useNavigate();
@@ -52,7 +18,8 @@ export default function CreateRoute() {
   const [nextType, setNextType] = useState('mailbox');
   const [saving, setSaving] = useState(false);
   const [routeId, setRouteId] = useState(id || null);
-  const [mapCenter, setMapCenter] = useState([61.1282, 21.5117]); // Rauma default
+  const [focus, setFocus] = useState(null);   // where the map should pan to
+  const [openId, setOpenId] = useState(null); // stop whose edit bubble is open
   const watchRef = useRef(null);
 
   // Load existing route if editing
@@ -61,18 +28,20 @@ export default function CreateRoute() {
     api.getRoute(id).then(r => {
       setRouteName(r.name);
       setStops(r.stops || []);
+      if (r.stops?.length) setFocus([r.stops[0].lat, r.stops[0].lng]);
     });
   }, [id]);
 
   // Start GPS watch
   useEffect(() => {
     if (!navigator.geolocation) return;
+    let centred = false;
     watchRef.current = navigator.geolocation.watchPosition(
       pos => {
         const p = [pos.coords.latitude, pos.coords.longitude];
         setGpsPos(p);
         setGpsAccuracy(Math.round(pos.coords.accuracy));
-        if (!stops.length && !isEdit) setMapCenter(p);
+        if (!centred && !isEdit) { centred = true; setFocus(p); } // first fix: bring the map to the user
       },
       null,
       { enableHighAccuracy: true, maximumAge: 3000 }
@@ -100,6 +69,7 @@ export default function CreateRoute() {
   };
 
   const handleMapClick = async (latlng) => {
+    setOpenId(null);
     const rId = await ensureRoute();
     const stop = await api.createStop(rId, {
       lat: latlng.lat, lng: latlng.lng,
@@ -118,6 +88,7 @@ export default function CreateRoute() {
   const deleteStop = async (stop) => {
     await api.deleteStop(stop.id);
     setStops(prev => prev.filter(s => s.id !== stop.id));
+    setOpenId(null);
   };
 
   const updateAddress = async (stop, address) => {
@@ -141,6 +112,8 @@ export default function CreateRoute() {
   const polylinePoints = stops.map(s => [s.lat, s.lng]);
   const mboxCount = stops.filter(s => s.type === 'mailbox').length;
   const aptCount  = stops.filter(s => s.type === 'apartment').length;
+  const openIdx   = stops.findIndex(s => s.id === openId);
+  const openStop  = openIdx >= 0 ? stops[openIdx] : null;
 
   return (
     <div className="screen-full" style={{ display:'flex', flexDirection:'column' }}>
@@ -153,36 +126,38 @@ export default function CreateRoute() {
 
       {/* Map */}
       <div style={{ flex:'0 0 46%', margin:'0 22px', borderRadius:16, overflow:'hidden', border:'2px solid #C8C4BC' }}>
-        <MapContainer center={mapCenter} zoom={16} style={{ height:'100%', width:'100%' }} zoomControl={false}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <MapClickHandler onMapClick={handleMapClick} />
-          {gpsPos && <MapCenterer pos={null} />}
+        <MapCanvas center={RAUMA} zoom={16} onMapClick={handleMapClick}>
+          <MapFocus target={focus} />
 
-          {/* Route polyline */}
-          {polylinePoints.length > 1 && <Polyline positions={polylinePoints} color="#7C5CEA" weight={3} opacity={0.7} dashArray="8 5" />}
+          {/* Route line */}
+          <RouteLine path={polylinePoints} color="#7C5CEA" weight={3} opacity={0.7} dashed />
 
           {/* Stop markers */}
           {stops.map((s, i) => (
-            <Marker key={s.id} position={[s.lat, s.lng]} icon={s.type === 'apartment' ? aptIcon(i+1) : mailboxIcon(i+1)}>
-              <Popup>
-                <div style={{ fontSize:13, minWidth:160 }}>
-                  <strong>Stop {i+1}</strong><br/>
-                  <input style={{ border:'1px solid #ccc', borderRadius:6, padding:'4px 8px', width:'100%', marginTop:6, fontSize:12 }}
-                    defaultValue={s.address} onBlur={e => updateAddress(s, e.target.value)} />
-                  <div style={{ marginTop:8, display:'flex', gap:6 }}>
-                    <button onClick={() => toggleStopType(s)} style={{ flex:1, padding:'5px 8px', borderRadius:8, border:'1px solid #ccc', cursor:'pointer', fontSize:11, background: s.type==='apartment'?'#FEF3C7':'#D1FAE5' }}>
-                      {s.type === 'mailbox' ? '📬 Mailbox' : '🏢 Apartment'}
-                    </button>
-                    <button onClick={() => deleteStop(s)} style={{ padding:'5px 8px', borderRadius:8, border:'1px solid #f99', cursor:'pointer', fontSize:11, background:'#FEE2E2' }}>🗑</button>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
+            <CircleMarker key={s.id} position={[s.lat, s.lng]} color={s.type === 'apartment' ? '#F59E0B' : '#7C5CEA'}
+              label={i + 1} onClick={() => setOpenId(s.id)} />
           ))}
 
+          {/* Edit bubble for the tapped stop */}
+          {openStop && (
+            <InfoWindow position={{ lat: openStop.lat, lng: openStop.lng }} pixelOffset={[0, -18]} onCloseClick={() => setOpenId(null)}>
+              <div style={{ fontSize:13, minWidth:160, color:'#222' }}>
+                <strong>Stop {openIdx + 1}</strong><br/>
+                <input key={openStop.id} style={{ border:'1px solid #ccc', borderRadius:6, padding:'4px 8px', width:'100%', marginTop:6, fontSize:12 }}
+                  defaultValue={openStop.address} onBlur={e => updateAddress(openStop, e.target.value)} />
+                <div style={{ marginTop:8, display:'flex', gap:6 }}>
+                  <button onClick={() => toggleStopType(openStop)} style={{ flex:1, padding:'5px 8px', borderRadius:8, border:'1px solid #ccc', cursor:'pointer', fontSize:11, background: openStop.type==='apartment'?'#FEF3C7':'#D1FAE5' }}>
+                    {openStop.type === 'mailbox' ? '📬 Mailbox' : '🏢 Apartment'}
+                  </button>
+                  <button onClick={() => deleteStop(openStop)} style={{ padding:'5px 8px', borderRadius:8, border:'1px solid #f99', cursor:'pointer', fontSize:11, background:'#FEE2E2' }}>🗑</button>
+                </div>
+              </div>
+            </InfoWindow>
+          )}
+
           {/* GPS dot */}
-          {gpsPos && <Marker position={gpsPos} icon={gpsIcon}><Popup>📍 You are here{gpsAccuracy ? ` (±${gpsAccuracy}m)` : ''}</Popup></Marker>}
-        </MapContainer>
+          {gpsPos && <DotMarker position={gpsPos} />}
+        </MapCanvas>
       </div>
 
       {/* GPS status bar */}

@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const INPUT_STYLE = { padding:'9px 12px', fontSize:13, borderRadius:10 };
+const BUTTON_STYLE = { width:'100%', maxWidth:300, alignSelf:'center', padding:'10px 16px', fontSize:14, borderRadius:10 };
+const FIELD_STYLE = { width:'100%', maxWidth:300, alignSelf:'center' };
+
 const LOGO = () => (
   <svg width="72" height="72" viewBox="0 0 36 36">
     <rect width="36" height="36" rx="10" fill="#7C5CEA"/>
@@ -40,16 +44,16 @@ export default function Login() {
         <p style={{ marginTop:6 }}>Precision delivery, every street</p>
       </div>
       <form onSubmit={handleSubmit} style={{ width:'100%', display:'flex', flexDirection:'column', gap:14 }}>
-        <div className="field">
+        <div className="field" style={FIELD_STYLE}>
           <label className="label">Email address</label>
-          <input className="input" type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} required />
+          <input className="input" style={INPUT_STYLE} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} required />
         </div>
-        <div className="field">
+        <div className="field" style={FIELD_STYLE}>
           <label className="label">Password</label>
-          <input className="input" type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} required />
+          <input className="input" style={INPUT_STYLE} type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} required />
         </div>
         {error && <div style={{ background:'#2A0808', border:'1px solid #541212', borderRadius:12, padding:'10px 14px', color:'#F87171', fontSize:13 }}><i className="ti ti-alert-triangle" /> {error}</div>}
-        <button className="btn btn-primary" type="submit" disabled={loading}>
+        <button className="btn btn-primary" style={BUTTON_STYLE} type="submit" disabled={loading}>
           {loading ? 'Signing in...' : <><i className="ti ti-arrow-right" /> Sign In</>}
         </button>
       </form>

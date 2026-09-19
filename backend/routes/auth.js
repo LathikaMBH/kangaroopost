@@ -1,13 +1,14 @@
 const router = require('express').Router();
+const wrap = require('../middleware/async');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { queries } = require('../database');
 const JWT_SECRET = process.env.JWT_SECRET || 'papertrail_secret_2024';
 
-router.post('/login', (req, res) => {
+router.post('/login', wrap(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const user = queries.getUserByEmail(email.toLowerCase().trim());
+  const user = await queries.getUserByEmail(email.toLowerCase().trim());
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   if (!bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
   const token = jwt.sign(
@@ -15,6 +16,6 @@ router.post('/login', (req, res) => {
     JWT_SECRET, { expiresIn: '30d' }
   );
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, city: user.city, phone: user.phone, owner_id: user.owner_id } });
-});
+}));
 
 module.exports = router;

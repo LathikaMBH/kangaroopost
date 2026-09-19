@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import RouteStatusTiles, { routeStatus } from '../../components/RouteStatusTiles';
+import RouteTable, { ViewToggle } from '../../components/RouteTable';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -9,19 +11,24 @@ export default function AdminDashboard() {
   const [owners, setOwners] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState(null);
 
   useEffect(() => {
-    Promise.all([api.getOwners(), api.getRoutes()])
+    const load = () => Promise.all([api.getOwners(), api.getRoutes()])
       .then(([o, r]) => { setOwners(o); setRoutes(r); })
+      .catch(() => {})
       .finally(() => setLoading(false));
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
   }, []);
+
+  const visibleRoutes = statusFilter ? routes.filter(r => routeStatus(r) === statusFilter) : routes;
 
   const stats = {
     owners:    owners.length,
     riders:    owners.reduce((s, o) => s + (o.rider_count || 0), 0),
     routes:    routes.length,
-    ongoing:   routes.filter(r => r.status === 'ongoing').length,
-    completed: routes.filter(r => r.status === 'completed').length,
   };
 
   return (
@@ -39,19 +46,21 @@ export default function AdminDashboard() {
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:24 }}>
         {[
-          { label:'Owners',    val:stats.owners,    color:'var(--pl)' },
-          { label:'Riders',    val:stats.riders,    color:'var(--sub)' },
-          { label:'Routes',    val:stats.routes,    color:'var(--tx)' },
-          { label:'Ongoing',   val:stats.ongoing,   color:'var(--amb)' },
-          { label:'Completed', val:stats.completed, color:'var(--grn)' },
-          { label:'Total',     val:stats.routes,    color:'var(--mut)' },
-        ].slice(0,3).map(s => (
+          { label:'Owners', val:stats.owners, color:'var(--pl)' },
+          { label:'Riders', val:stats.riders, color:'var(--sub)' },
+          { label:'Routes', val:stats.routes, color:'var(--tx)' },
+        ].map(s => (
           <div key={s.label} className="stat-card">
             <div className="stat-val" style={{ color:s.color, fontSize:24 }}>{s.val}</div>
             <div className="stat-lbl">{s.label}</div>
           </div>
         ))}
       </div>
+
+      {/* Route status */}
+      <div className="section-label">Route status</div>
+      <RouteStatusTiles routes={routes} value={statusFilter} onChange={setStatusFilter} />
+      <RouteTable routes={visibleRoutes} role="admin" emptyText={statusFilter ? 'No routes with this status' : 'No routes found'} />
 
       {/* Quick actions */}
       <div className="section-label">Actions</div>
