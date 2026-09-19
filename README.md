@@ -16,7 +16,7 @@ KangarooPost is a full-stack Progressive Web App (PWA) for managing and tracking
 | **Frontend (Netlify)** | *set after deployment* |
 | **Backend API (Railway)** | *set after deployment* |
 | **Health check** | `<backend address>/api/health` |
-| **GitHub repo** | https://github.com/LathikaMBH/papertrail |
+| **GitHub repo** | https://github.com/LathikaMBH/kangaroopost |
 
 ---
 
@@ -117,8 +117,8 @@ kangaroopost/
 ### Step 1 — Clone the repo
 
 ```bash
-git clone https://github.com/LathikaMBH/papertrail.git
-cd papertrail
+git clone https://github.com/LathikaMBH/kangaroopost.git
+cd kangaroopost
 ```
 
 ### Step 2 — Start the database
