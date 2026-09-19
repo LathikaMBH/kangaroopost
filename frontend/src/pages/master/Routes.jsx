@@ -4,11 +4,11 @@ import api from '../../services/api';
 
 const StatusBadge = ({ status }) => (
   <span className={`badge badge-${status}`}>
-    {status === 'not_started' ? 'Not started' : status === 'ongoing' ? 'Ongoing' : 'Completed'}
+    {{ not_started:'Not started', ongoing:'In progress', paused:'Paused', completed:'Completed' }[status] || 'Not started'}
   </span>
 );
 
-export default function MasterRoutes() {
+export default function MasterRoutes({ base = '/owner' }) {
   const navigate = useNavigate();
   const [routes, setRoutes] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -27,16 +27,16 @@ export default function MasterRoutes() {
   const filtered = filter === 'all' ? routes : routes.filter(r => r.status === filter);
   const filters = [
     { k:'all', l:'All' }, { k:'not_started', l:'Not started' },
-    { k:'ongoing', l:'Ongoing' }, { k:'completed', l:'Completed' }
+    { k:'ongoing', l:'In progress' }, { k:'paused', l:'Paused' }, { k:'completed', l:'Completed' }
   ];
 
   return (
     <div className="screen">
       <div className="page-header">
-        <button className="back-btn" onClick={() => navigate('/master')}><i className="ti ti-arrow-left" /></button>
+        <button className="back-btn" onClick={() => navigate(base)}><i className="ti ti-arrow-left" /></button>
         <h3>Routes</h3>
         <button className="btn btn-sm" style={{ background:'var(--pr)', color:'#fff', padding:'8px 12px' }}
-          onClick={() => navigate('/master/routes/new')}>
+          onClick={() => navigate(`${base}/routes/new`)}>
           <i className="ti ti-plus" />
         </button>
       </div>
@@ -66,7 +66,7 @@ export default function MasterRoutes() {
       <div style={{ padding:'0 22px' }}>
         {loading && <div className="spinner" />}
         {filtered.map(r => (
-          <div key={r.id} className="card" style={{ marginBottom:14, cursor:'pointer' }} onClick={() => navigate(`/master/routes/${r.id}`)}>
+          <div key={r.id} className="card" style={{ marginBottom:14, cursor:'pointer' }} onClick={() => navigate(`${base}/routes/${r.id}`)}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
               <div>
                 <div style={{ fontWeight:600, fontSize:15, color:'var(--tx)' }}>{r.name}</div>
@@ -81,10 +81,10 @@ export default function MasterRoutes() {
               {r.delivered_count > 0 && <span style={{ color:'var(--grn)', fontSize:13 }}><i className="ti ti-check" style={{ fontSize:12 }} /> {r.delivered_count} done</span>}
             </div>
             <div style={{ display:'flex', gap:8 }}>
-              <button className="btn btn-ghost btn-sm" style={{ flex:1 }} onClick={e => { e.stopPropagation(); navigate(`/master/routes/${r.id}/edit`); }}>
+              <button className="btn btn-ghost btn-sm" style={{ flex:1 }} onClick={e => { e.stopPropagation(); navigate(`${base}/routes/${r.id}/edit`); }}>
                 <i className="ti ti-edit" style={{ fontSize:13 }} /> Edit
               </button>
-              <button className="btn btn-ghost btn-sm" style={{ flex:1, color:'var(--pl)' }} onClick={e => { e.stopPropagation(); navigate(`/master/routes/${r.id}`); }}>
+              <button className="btn btn-ghost btn-sm" style={{ flex:1, color:'var(--pl)' }} onClick={e => { e.stopPropagation(); navigate(`${base}/routes/${r.id}`); }}>
                 <i className="ti ti-eye" style={{ fontSize:13 }} /> View
               </button>
               <button className="btn btn-danger btn-sm" onClick={e => deleteRoute(r.id, e)}>

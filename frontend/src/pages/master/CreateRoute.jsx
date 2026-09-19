@@ -6,7 +6,7 @@ import MapCanvas, { MapFocus, CircleMarker, DotMarker, RouteLine } from '../../c
 
 const RAUMA = [61.1282, 21.5117]; // default map centre
 
-export default function CreateRoute() {
+export default function CreateRoute({ base = '/owner' }) {
   const navigate = useNavigate();
   const { id } = useParams(); // present when editing
   const isEdit = Boolean(id);
@@ -103,7 +103,7 @@ export default function CreateRoute() {
     try {
       const rId = await ensureRoute();
       await api.updateRoute(rId, { name: routeName });
-      navigate('/master/routes');
+      navigate(`${base}/routes`);
     } catch (e) {
       alert('Save failed: ' + (e.error || e.message));
     } finally { setSaving(false); }
@@ -119,7 +119,7 @@ export default function CreateRoute() {
     <div className="screen-full" style={{ display:'flex', flexDirection:'column' }}>
       {/* Header */}
       <div style={{ padding:'56px 22px 12px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button className="back-btn" onClick={() => navigate('/master/routes')}><i className="ti ti-arrow-left" /></button>
+        <button className="back-btn" onClick={() => navigate(`${base}/routes`)}><i className="ti ti-arrow-left" /></button>
         <input className="input" style={{ flex:1, borderColor:'var(--pr)' }}
           placeholder="Route name e.g. Rauma North" value={routeName} onChange={e => setRouteName(e.target.value)} />
       </div>
