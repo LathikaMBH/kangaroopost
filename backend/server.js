@@ -16,7 +16,7 @@ const io = new Server(server, {
 });
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.set('trust proxy', 1); // behind Render/Netlify: use the real client IP (rate limiting)
+app.set('trust proxy', 1); // behind Railway's proxy: use the real client IP (rate limiting)
 app.use(helmet());
 app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json());
