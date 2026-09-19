@@ -2,21 +2,40 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
 
-export default function RouteDetail() {
+// base: '/owner' (route owners). The page is shared, so every link is built from it.
+export default function RouteDetail({ base = '/owner' }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [route, setRoute] = useState(null);
-  const [users, setUsers] = useState([]);
+  const [riders, setRiders] = useState([]);
+  const [error, setError] = useState('');
+  const [assignError, setAssignError] = useState('');
 
   useEffect(() => {
-    api.getRoute(id).then(setRoute);
-    api.getUsers().then(setUsers);
+    setError('');
+    api.getRoute(id).then(setRoute).catch(e => setError(e?.error || 'Could not load this route'));
+    api.getRiders().then(setRiders).catch(() => setRiders([]));
   }, [id]);
 
   const assign = async (rider_id) => {
-    await api.assignRoute(id, rider_id === '' ? null : Number(rider_id));
-    api.getRoute(id).then(setRoute);
+    setAssignError('');
+    try {
+      await api.assignRoute(id, rider_id === '' ? null : Number(rider_id));
+      setRoute(await api.getRoute(id));
+    } catch (e) { setAssignError(e?.error || 'Could not assign the rider'); }
   };
+
+  const back = () => navigate(`${base}/routes`);
+
+  if (error) return (
+    <div className="screen">
+      <div className="page-header">
+        <button className="back-btn" onClick={back}><i className="ti ti-arrow-left" /></button>
+        <h3>Route</h3><div style={{ width:30 }} />
+      </div>
+      <div style={{ padding:'0 22px', textAlign:'center', color:'var(--mut)', paddingTop:40 }}>{error}</div>
+    </div>
+  );
 
   if (!route) return <div className="spinner" style={{ marginTop:80 }} />;
 
@@ -27,9 +46,9 @@ export default function RouteDetail() {
   return (
     <div className="screen">
       <div className="page-header">
-        <button className="back-btn" onClick={() => navigate('/master/routes')}><i className="ti ti-arrow-left" /></button>
+        <button className="back-btn" onClick={back}><i className="ti ti-arrow-left" /></button>
         <h3>{route.name}</h3>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/master/routes/${id}/edit`)}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(`${base}/routes/${id}/edit`)}>
           <i className="ti ti-edit" style={{ fontSize:16 }} />
         </button>
       </div>
@@ -48,8 +67,14 @@ export default function RouteDetail() {
           <select className="input" value={route.rider_id || ''} onChange={e => assign(e.target.value)}
             style={{ appearance:'auto' }}>
             <option value="">— Unassigned —</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {riders.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
+          {assignError && <div style={{ color:'var(--red)', fontSize:13, marginTop:8 }}>{assignError}</div>}
+          {riders.length === 0 && (
+            <div style={{ color:'var(--mut)', fontSize:12, marginTop:8 }}>
+              You have no riders yet. <span style={{ color:'var(--pl)', cursor:'pointer' }} onClick={() => navigate(`${base}/riders`)}>Add a rider</span> to assign this route.
+            </div>
+          )}
         </div>
 
         {/* Stop list */}
@@ -69,6 +94,9 @@ export default function RouteDetail() {
             <span className={`badge badge-${s.type}`}><i className={`ti ti-${s.type==='mailbox'?'mailbox':'building'}`} style={{ fontSize:10 }} /> {s.type}</span>
           </div>
         ))}
+        {(!route.stops || route.stops.length === 0) && (
+          <div style={{ color:'var(--mut)', fontSize:13, textAlign:'center', padding:'16px 0' }}>No stops yet. Use the edit button to pin some on the map.</div>
+        )}
       </div>
     </div>
   );

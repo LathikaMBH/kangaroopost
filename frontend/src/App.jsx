@@ -54,6 +54,9 @@ function AppRoutes() {
       {/* Rider */}
       <Route path="/rider"                        element={<Guard roles={['rider']}><Layout><RiderDashboard /></Layout></Guard>} />
       <Route path="/rider/navigate/:routeId"      element={<Guard roles={['rider']}><Layout><RiderNavigate /></Layout></Guard>} />
+
+      {/* anything else: back to the user's home (or the login page) */}
+      <Route path="*" element={<Navigate to={home} replace />} />
     </Routes>
   );
 }
