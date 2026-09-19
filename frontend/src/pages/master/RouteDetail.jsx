@@ -49,7 +49,7 @@ export default function RouteDetail({ base = '/owner' }) {
         <button className="back-btn" onClick={back}><i className="ti ti-arrow-left" /></button>
         <h3>{route.name}</h3>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate(`${base}/routes/${id}/edit`)}>
-          <i className="ti ti-edit" style={{ fontSize:16 }} />
+          <i className="ti ti-edit" style={{ fontSize:14 }} /> Edit
         </button>
       </div>
 
