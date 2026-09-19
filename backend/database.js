@@ -135,6 +135,20 @@ const queries = {
   // routes.rider_id is ON DELETE SET NULL, so their routes become unassigned
   deleteUser: (id) => q('DELETE FROM users WHERE id = $1', [Number(id)]),
 
+  // Deleting a route owner removes everything that belongs to them: their routes (stops and GPS pings go with
+  // them) and their riders. All or nothing.
+  deleteOwnerCascade: async (id) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM routes WHERE owner_id = $1', [Number(id)]);
+      await client.query("DELETE FROM users WHERE role = 'rider' AND owner_id = $1", [Number(id)]);
+      await client.query("DELETE FROM users WHERE role = 'route_owner' AND id = $1", [Number(id)]);
+      await client.query('COMMIT');
+    } catch (e) { await client.query('ROLLBACK'); throw e; }
+    finally { client.release(); }
+  },
+
   // returns the user (without hash) or null if no such user with that role
   setPassword: (id, password_hash, role) => one(
     `UPDATE users SET password_hash = $2 WHERE id = $1 AND role = $3 RETURNING ${SAFE_USER}`,

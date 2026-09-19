@@ -410,6 +410,7 @@ If sign-in fails with a network error, check `VITE_API_URL` (was the site rebuil
 ### Security notes
 - Sign-in is rate limited (10 failed attempts per 15 minutes per IP). Live-location sockets require a valid login,
   and a user can only watch routes they own or are assigned to.
+- **Who can do what with a route** (enforced by the server in `backend/middleware/access.js`): the admin, the route's owner and its assigned rider can *view* it; only the admin and the owner can *edit, delete, assign a rider or change stops* (and a rider must belong to that route's owner); only the assigned rider can *start, pause, resume, deliver stops or send GPS*; the assigned rider, the owner or the admin can *end* it. Deleting a route owner also deletes their riders, routes and stops.
 - Passwords are stored hashed; the admin can set new passwords for owners, and owners for their riders.
 - Login tokens last 30 days and cannot be revoked individually — changing `JWT_SECRET` signs everyone out.
 - Railway bills by usage after its trial credit — check current pricing. Back up the database (Railway's backups
