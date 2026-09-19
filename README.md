@@ -1,8 +1,6 @@
 # KangarooPost 🗺️
 ### GPS-Powered Delivery Route Tracking Platform
 
-[![Live App](https://img.shields.io/badge/Live%20App-papertrail--rauma.netlify.app-7C5CEA?style=flat-square)](https://papertrail-rauma.netlify.app)
-[![Backend](https://img.shields.io/badge/Backend-Railway-0B0D0E?style=flat-square)](https://papertrail-production-3f35.up.railway.app/api/health)
 [![License](https://img.shields.io/badge/License-Private-red?style=flat-square)]()
 
 KangarooPost is a full-stack Progressive Web App (PWA) for managing and tracking newspaper and parcel delivery routes. It uses real GPS auto-detection so riders are tracked automatically — no manual tapping required.
@@ -15,9 +13,9 @@ KangarooPost is a full-stack Progressive Web App (PWA) for managing and tracking
 
 | Service | URL |
 |---|---|
-| **Frontend (Netlify)** | https://papertrail-rauma.netlify.app |
-| **Backend API (Railway)** | https://papertrail-production-3f35.up.railway.app |
-| **Health check** | https://papertrail-production-3f35.up.railway.app/api/health |
+| **Frontend (Netlify)** | *set after deployment* |
+| **Backend API (Railway)** | *set after deployment* |
+| **Health check** | `<backend address>/api/health` |
 | **GitHub repo** | https://github.com/LathikaMBH/papertrail |
 
 ---
@@ -55,11 +53,11 @@ KangarooPost has three distinct user roles:
 | **Frontend** | React 18, Vite, React Router, Google Maps (`@vis.gl/react-google-maps`) |
 | **Real-time** | Socket.io (WebSockets) |
 | **Backend** | Node.js, Express.js |
-| **Database** | PostgreSQL 18 (`pg` driver) — local via `db/`, managed PostgreSQL (Render) in production |
+| **Database** | PostgreSQL 18 (`pg` driver) — local via `db/`, Railway PostgreSQL in production |
 | **Auth** | JWT (JSON Web Tokens) |
 | **Maps** | Google Maps JavaScript API — needs an API key (see [Google Maps setup](#google-maps-setup)) |
 | **GPS** | Browser Geolocation API + Haversine formula |
-| **Deployment** | Render (backend + DB) · Netlify (frontend) |
+| **Deployment** | Railway (backend + PostgreSQL) · Netlify (frontend) |
 | **PWA** | Installable on iOS and Android from the browser |
 
 ---
@@ -203,7 +201,7 @@ The create-route page (`/owner/routes/new`) and the rider navigation screen show
 2. Enable **Maps JavaScript API** (APIs & Services → Library).
 3. Create an API key (APIs & Services → Credentials → Create credentials → API key).
 4. **Restrict the key** — it is visible in the browser, so:
-   - *Application restrictions* → HTTP referrers: `http://localhost:3000/*` and your production domain (e.g. `https://papertrail-rauma.netlify.app/*`)
+   - *Application restrictions* → HTTP referrers: `http://localhost:3000/*` and your production domain (e.g. `https://your-site.netlify.app/*`)
    - *API restrictions* → Maps JavaScript API only
 5. Copy `frontend/.env.example` to `frontend/.env` and set:
    ```env
@@ -348,65 +346,73 @@ The schema is created automatically by `backend/database.js` on startup (`CREATE
 
 ## 🚀 Deployment
 
-Production layout: **Netlify** (frontend) → **Render** web service (backend) → **PostgreSQL** (Render database).
+Production layout: **Netlify** (frontend) → **Railway** service (backend) → **Railway PostgreSQL**.
+The browser talks to the backend directly, using the address in `VITE_API_URL`.
 
 > ⚠️ **Order matters.** The backend refuses to start without the settings below (by design — it will not
-> run in production with a default password or secret). Set everything up **before** merging to `main`,
-> because a push to `main` redeploys the backend immediately.
+> run in production with a default password or secret). Create the database and set the variables
+> **before** the first deploy, because Railway deploys automatically when you push to the linked branch.
 
-### 1. Database
-Create a PostgreSQL database (e.g. Render → *New → PostgreSQL*). Copy its **Internal Database URL**
-(use the *External* URL only if the backend runs somewhere else — and then also set `PG_SSL=true`).
-Tables are created automatically on the first start.
+### 1. Railway project + database
+1. Railway → **New Project → Deploy from GitHub repo** → pick this repository (do not deploy yet if it offers to; add the variables first).
+2. In the project: **+ New → Database → Add PostgreSQL**. Tables are created automatically on the backend's first start.
 
-### 2. Backend (Render web service)
-Root directory `backend` · build command `npm install` · start command `npm start` · health check path `/api/health`.
+### 2. Backend service
+Open the backend service → **Settings**:
+- **Root Directory:** `backend`
+- **Start command:** `npm start` (Railway normally detects this)
+- **Healthcheck path:** `/api/health`
+- **Networking → Generate Domain** — this is your backend address (e.g. `https://xxxx.up.railway.app`)
 
-| Environment variable | Value |
+Then **Variables** (Railway supplies `PORT` itself):
+
+| Variable | Value |
 |---|---|
 | `NODE_ENV` | `production` |
-| `DATABASE_URL` | the database URL from step 1 |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (a reference to the database service — use its exact name if it is not "Postgres"). This is the private address; no SSL setting needed |
 | `JWT_SECRET` | **required**, 32+ random characters: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
-| `CORS_ORIGINS` | **required**: your frontend address, e.g. `https://your-site.netlify.app` (comma-separate several) |
-| `ADMIN_EMAIL` | first admin's email (first start only) |
+| `CORS_ORIGINS` | **required**: your frontend address, e.g. `https://your-site.netlify.app` (comma-separate several, no trailing slash) |
+| `ADMIN_EMAIL` | first admin's email (used on the first start only) |
 | `ADMIN_PASSWORD` | first admin's password, 10+ characters (first start only). **Not** `admin123` |
-| `PG_SSL` | `true` only if the database needs SSL |
+| `PG_SSL` | `true` only if you use the database's *public* URL from outside Railway |
 
-The server stops at startup with a clear message if `JWT_SECRET`, `ADMIN_PASSWORD` (on an empty database) or a strong-enough
-secret is missing. `ADMIN_EMAIL`/`ADMIN_PASSWORD` are only used to create the first admin; after that you can
-change the admin's password by signing in and using **Password**, and remove `ADMIN_PASSWORD` from the host.
+If a required value is missing the service stops at startup and the deploy log says exactly which one.
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` are only used to create the first admin; afterwards change the password in the app
+(**Owners → Password** for owners, or sign in as admin) and you can delete `ADMIN_PASSWORD` from Railway.
 
 ### 3. Frontend (Netlify)
-1. In `frontend/netlify.toml` the `/api/*` and `/socket.io/*` redirects must point at your backend address.
-2. Set these **before building** (Netlify → Site settings → Environment variables, or `frontend/.env.production`
-   if you build locally and drag `dist/` in). Vite bakes them into the build:
-   ```
-   VITE_API_URL=https://your-backend.onrender.com     # live updates connect here directly (Netlify cannot proxy WebSockets)
-   VITE_GOOGLE_MAPS_API_KEY=your_restricted_key
-   VITE_GOOGLE_MAPS_MAP_ID=your_map_id                # create one in Google Cloud (see Google Maps setup)
-   ```
-3. Build: `npm run build` (inside `frontend/`), then deploy `dist/` — or connect the GitHub repo (base directory
-   `frontend`, build command `npm run build`, publish directory `dist`).
+Set these **before building** (Netlify → Site settings → Environment variables; or in `frontend/.env.production` if you
+build locally). Vite bakes them into the build, so change them → rebuild:
+```
+VITE_API_URL=https://xxxx.up.railway.app          # your Railway backend address, no trailing slash
+VITE_GOOGLE_MAPS_API_KEY=your_restricted_key
+VITE_GOOGLE_MAPS_MAP_ID=your_map_id               # create one in Google Cloud (see Google Maps setup)
+```
+Build `npm run build` in `frontend/` and deploy `dist/`, or connect the GitHub repo in Netlify
+(base directory `frontend`, build command `npm run build`, publish directory `dist` — already in `netlify.toml`).
 
 ### 4. Google Maps key for production
-In Google Cloud Console → Credentials → your key → add your production address to the **HTTP referrer**
+In Google Cloud Console → Credentials → your key → add your Netlify address to the **HTTP referrer**
 restrictions (e.g. `https://your-site.netlify.app/*`), keep it restricted to the *Maps JavaScript API*, and make
 sure billing is enabled.
 
 ### 5. Smoke test after deploying
-1. `https://your-backend.onrender.com/api/health` → `{"status":"ok"}`
+1. `https://xxxx.up.railway.app/api/health` → `{"status":"ok"}`
 2. Open the site, sign in with the admin you created. The login page must **not** show any demo credentials.
 3. Create a route owner, sign in as them, create a route on the map (tap to pin), assign a rider, and check the
    rider screen and the live status tiles.
-4. Sign out and in again from a phone (GPS needs HTTPS — Netlify provides it).
+4. Open the site on a phone (GPS needs HTTPS — Netlify provides it).
+
+If sign-in fails with a network error, check `VITE_API_URL` (was the site rebuilt after setting it?) and `CORS_ORIGINS`
+(exact address, `https://`, no trailing slash).
 
 ### Security notes
 - Sign-in is rate limited (10 failed attempts per 15 minutes per IP). Live-location sockets require a valid login,
   and a user can only watch routes they own or are assigned to.
 - Passwords are stored hashed; the admin can set new passwords for owners, and owners for their riders.
 - Login tokens last 30 days and cannot be revoked individually — changing `JWT_SECRET` signs everyone out.
-- **Render free tier:** the web service sleeps after inactivity (first request is slow) and free databases can expire.
-  Use a paid database plan for real data, and back it up (Render dashboard or `pg_dump`).
+- Railway bills by usage after its trial credit — check current pricing. Back up the database (Railway's backups
+  feature or `pg_dump`) before storing real data.
 
 ---
 

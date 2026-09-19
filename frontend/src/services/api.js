@@ -1,5 +1,8 @@
 import axios from 'axios';
-const api = axios.create({ baseURL: '/api' });
+// Production: VITE_API_URL is the backend's public address (set at build time). Development: empty, the Vite proxy handles /api.
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+if (import.meta.env.PROD && !API_URL) console.error('VITE_API_URL is not set: the app cannot reach the backend');
+const api = axios.create({ baseURL: `${API_URL}/api` });
 api.interceptors.request.use(cfg => {
   const t = localStorage.getItem('kp_token');
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
