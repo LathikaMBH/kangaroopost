@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { InfoWindow } from '@vis.gl/react-google-maps';
 import api from '../../services/api';
 import MapCanvas, { MapFocus, CircleMarker, DotMarker, RouteLine } from '../../components/GoogleMapView';
@@ -10,6 +10,10 @@ export default function CreateRoute({ base = '/owner' }) {
   const navigate = useNavigate();
   const { id } = useParams(); // present when editing
   const isEdit = Boolean(id);
+  const [search] = useSearchParams();
+  const insertPos = Number(search.get('insert')) || null;  // set when opened from a "+" between two stops
+  const insertMode = Boolean(id && insertPos);
+  const [newAddress, setNewAddress] = useState('');
 
   const [routeName, setRouteName] = useState('');
   const [stops, setStops] = useState([]);
@@ -57,26 +61,28 @@ export default function CreateRoute({ base = '/owner' }) {
     return r.id;
   };
 
+  // Adds a stop at (lat, lng): at the end normally, or at the chosen position when opened from a "+".
+  const addStop = async (lat, lng) => {
+    try {
+      const rId = await ensureRoute();
+      if (insertMode) {
+        await api.createStop(rId, { lat, lng, type: nextType, address: newAddress.trim() || undefined, position: insertPos });
+        navigate(`${base}/routes/${rId}`);   // back to the stop list, which now shows the new stop in place
+        return;
+      }
+      const stop = await api.createStop(rId, { lat, lng, address: `Stop ${stops.length + 1}`, type: nextType });
+      setStops(prev => [...prev, stop]);
+    } catch (e) { alert(e?.error || 'Could not add the stop'); }
+  };
+
   const saveGPS = async () => {
     if (!gpsPos) return alert('GPS not ready yet. Please wait for a location fix.');
-    const rId = await ensureRoute();
-    const stop = await api.createStop(rId, {
-      lat: gpsPos[0], lng: gpsPos[1],
-      address: `Stop ${stops.length + 1}`,
-      type: nextType,
-    });
-    setStops(prev => [...prev, stop]);
+    await addStop(gpsPos[0], gpsPos[1]);
   };
 
   const handleMapClick = async (latlng) => {
     setOpenId(null);
-    const rId = await ensureRoute();
-    const stop = await api.createStop(rId, {
-      lat: latlng.lat, lng: latlng.lng,
-      address: `Stop ${stops.length + 1}`,
-      type: nextType,
-    });
-    setStops(prev => [...prev, stop]);
+    await addStop(latlng.lat, latlng.lng);
   };
 
   const toggleStopType = async (stop) => {
@@ -115,14 +121,31 @@ export default function CreateRoute({ base = '/owner' }) {
   const openIdx   = stops.findIndex(s => s.id === openId);
   const openStop  = openIdx >= 0 ? stops[openIdx] : null;
 
+  // where the new stop goes, for the banner
+  const stopBefore = insertMode ? stops[insertPos - 2] : null;
+  const stopAfter  = insertMode ? stops[insertPos - 1] : null;
+  const insertLabel = !stopBefore && !stopAfter ? 'Adding a stop'
+    : !stopBefore ? `Adding a stop before "${stopAfter.address}"`
+    : !stopAfter  ? `Adding a stop after "${stopBefore.address}"`
+    : `Adding a stop between "${stopBefore.address}" and "${stopAfter.address}"`;
+
   return (
     <div className="screen-full" style={{ display:'flex', flexDirection:'column' }}>
       {/* Header */}
       <div style={{ padding:'56px 22px 12px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button className="back-btn" onClick={() => navigate(`${base}/routes`)}><i className="ti ti-arrow-left" /></button>
+        <button className="back-btn" onClick={() => navigate(insertMode ? `${base}/routes/${id}` : `${base}/routes`)}><i className="ti ti-arrow-left" /></button>
         <input className="input" style={{ flex:1, borderColor:'var(--pr)' }}
           placeholder="Route name e.g. Rauma North" value={routeName} onChange={e => setRouteName(e.target.value)} />
       </div>
+
+      {insertMode && (
+        <div style={{ margin:'0 22px 10px', padding:'10px 12px', background:'var(--card)', border:'1px solid var(--pr)66', borderRadius:14, flexShrink:0 }}>
+          <div style={{ fontSize:12, fontWeight:600, color:'var(--pl)', marginBottom:6 }}>{insertLabel}</div>
+          <input className="input" style={{ padding:'8px 12px', fontSize:13 }} placeholder="Address or note for the new stop (optional)"
+            value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+          <div style={{ fontSize:11, color:'var(--mut)', marginTop:6 }}>Tap the map, or use your GPS location below, to place it.</div>
+        </div>
+      )}
 
       {/* Map */}
       <div style={{ flex:'0 0 46%', margin:'0 22px', borderRadius:16, overflow:'hidden', border:'2px solid #C8C4BC' }}>
@@ -199,7 +222,7 @@ export default function CreateRoute({ base = '/owner' }) {
             background: gpsPos ? '#4285F4' : 'var(--mut)', color:'white', fontSize:15, fontWeight:700,
             display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:8 }}>
           <i className="ti ti-current-location" style={{ fontSize:22 }} />
-          Save GPS Location — Stop {stops.length + 1}
+          {insertMode ? 'Insert at my GPS location' : `Save GPS Location — Stop ${stops.length + 1}`}
         </button>
         <p style={{ textAlign:'center', fontSize:11, marginBottom:10 }}>
           {gpsPos ? 'Standing at the mailbox? Press to capture your exact location' : 'Or tap anywhere on the map to pin a stop'}
@@ -214,9 +237,13 @@ export default function CreateRoute({ base = '/owner' }) {
           </div>
         )}
 
-        <button className="btn btn-primary" onClick={saveRoute} disabled={saving}>
-          {saving ? 'Saving...' : <><i className="ti ti-device-floppy" /> Save Route</>}
-        </button>
+        {insertMode ? (
+          <button className="btn btn-ghost" style={{ width:'100%' }} onClick={() => navigate(`${base}/routes/${id}`)}>Cancel</button>
+        ) : (
+          <button className="btn btn-primary" onClick={saveRoute} disabled={saving}>
+            {saving ? 'Saving...' : <><i className="ti ti-device-floppy" /> Save Route</>}
+          </button>
+        )}
       </div>
     </div>
   );

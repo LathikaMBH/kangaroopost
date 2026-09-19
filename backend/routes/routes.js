@@ -67,8 +67,20 @@ router.get('/:id/stops', auth, wrap(async (req, res) => {
 router.post('/:id/stops', auth, ownerOrAdmin, wrap(async (req, res) => {
   const route = await loadRoute(req, res, req.params.id, canManage);
   if (!route) return;
-  const { address, lat, lng, type = 'mailbox' } = req.body;
-  if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+  // a rider is following this route right now: a new stop would stop it from ever completing
+  if (route.status === 'ongoing' || route.status === 'paused') {
+    return res.status(409).json({ error: 'This route is in progress. Stops can be added once it is finished or not started.' });
+  }
+  const { address, lat, lng, type = 'mailbox', position } = req.body;
+  if (!lat || !lng || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return res.status(400).json({ error: 'lat and lng required' });
+  if (!['mailbox', 'apartment'].includes(type)) return res.status(400).json({ error: 'type must be mailbox or apartment' });
+
+  // position given: insert there (1 = first) and shift the later stops; otherwise add at the end
+  if (position !== undefined && position !== null && position !== '') {
+    const pos = Number(position);
+    if (!Number.isInteger(pos) || pos < 1) return res.status(400).json({ error: 'position must be a whole number, 1 or more' });
+    return res.status(201).json(await queries.insertStopAt(route.id, pos, String(address ?? '').trim() || 'New stop', lat, lng, type));
+  }
   const order_num = await queries.getMaxOrder(route.id) + 1;
   res.status(201).json(await queries.createStop(route.id, order_num, address || `Stop ${order_num}`, lat, lng, type));
 }));

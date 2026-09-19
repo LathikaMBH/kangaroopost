@@ -182,6 +182,29 @@ const queries = {
     [Number(route_id), order_num, address, lat, lng, type]
   ),
 
+  // Insert a stop so it ends up at `position` (1 = first, n+1 = last). The stops after it move down one place and
+  // the order numbers are re-packed 1..n. All or nothing, and the route's stops are locked while it happens.
+  insertStopAt: async (route_id, position, address, lat, lng, type) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: existing } = await client.query(
+        'SELECT id FROM stops WHERE route_id = $1 ORDER BY order_num, id FOR UPDATE', [Number(route_id)]);
+      const pos = Math.min(Math.max(Math.trunc(Number(position)) || 1, 1), existing.length + 1);
+      const { rows: [created] } = await client.query(
+        'INSERT INTO stops (route_id, order_num, address, lat, lng, type) VALUES ($1, 0, $2, $3, $4, $5) RETURNING id',
+        [Number(route_id), address, lat, lng, type]);
+      const ids = existing.map(r => r.id);
+      ids.splice(pos - 1, 0, created.id);
+      await client.query(
+        'UPDATE stops s SET order_num = t.n FROM unnest($1::int[]) WITH ORDINALITY AS t(id, n) WHERE s.id = t.id', [ids]);
+      const { rows: [stop] } = await client.query('SELECT * FROM stops WHERE id = $1', [created.id]);
+      await client.query('COMMIT');
+      return stop;
+    } catch (e) { await client.query('ROLLBACK'); throw e; }
+    finally { client.release(); }
+  },
+
   updateStop: (id, address, lat, lng, type, order_num) => one(
     'UPDATE stops SET address = $2, lat = $3, lng = $4, type = $5, order_num = $6 WHERE id = $1 RETURNING *',
     [Number(id), address, lat, lng, type, order_num]
