@@ -125,6 +125,7 @@ p  { color: var(--sub); font-size: 14px; line-height: 1.5; }
 }
 .badge-completed  { background: #082E20; color: var(--grn); border: 1px solid rgba(34,160,91,0.3); }
 .badge-ongoing    { background: #2A1A00; color: var(--amb); border: 1px solid rgba(217,144,10,0.3); }
+.badge-paused     { background: #2D1A00; color: #F59E0B; border: 1px solid rgba(245,158,11,0.3); }
 .badge-not_started{ background: var(--el); color: var(--mut); border: 1px solid var(--border); }
 .badge-mailbox    { background: #082E20; color: var(--grn); border: 1px solid rgba(34,160,91,0.4); }
 .badge-apartment  { background: #2D1A00; color: var(--apt); border: 1px solid rgba(245,158,11,0.4); }
@@ -172,11 +173,6 @@ p  { color: var(--sub); font-size: 14px; line-height: 1.5; }
 .stat-card { background: var(--card); border-radius: 16px; padding: 14px 8px; text-align: center; border: 1px solid var(--border); }
 .stat-val  { font-size: 26px; font-weight: 700; }
 .stat-lbl  { font-size: 10px; color: var(--mut); margin-top: 3px; }
-
-/* ── Leaflet map overrides ───────────────────────────────────────────────────── */
-.leaflet-container { background: #E8E5E0; }
-.leaflet-control-attribution { display: none !important; }
-.leaflet-bar a { background: var(--card) !important; color: var(--tx) !important; border-color: var(--border) !important; }
 
 /* ── Spinner ─────────────────────────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }

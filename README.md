@@ -52,12 +52,12 @@ PaperTrail has three distinct user roles:
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 18, Vite, React Router, Leaflet / OpenStreetMap |
+| **Frontend** | React 18, Vite, React Router, Google Maps (`@vis.gl/react-google-maps`) |
 | **Real-time** | Socket.io (WebSockets) |
 | **Backend** | Node.js, Express.js |
-| **Database** | PostgreSQL (Railway managed) |
+| **Database** | PostgreSQL 18 (`pg` driver) — local via `db/`, Railway managed in production |
 | **Auth** | JWT (JSON Web Tokens) |
-| **Maps** | OpenStreetMap — free, no API key needed |
+| **Maps** | Google Maps JavaScript API — needs an API key (see [Google Maps setup](#google-maps-setup)) |
 | **GPS** | Browser Geolocation API + Haversine formula |
 | **Deployment** | Railway (backend + DB) · Netlify (frontend) |
 | **PWA** | Installable on iOS and Android from the browser |
@@ -70,9 +70,12 @@ PaperTrail has three distinct user roles:
 papertrail/
 ├── backend/
 │   ├── server.js              # Express + Socket.io entry point
-│   ├── database.js            # PostgreSQL connection + schema + queries
+│   ├── database.js            # PostgreSQL (pg) connection + schema + queries
+│   ├── migrate-json-to-postgres.js  # One-off import from the old papertrail.json
+│   ├── .env                   # DATABASE_URL, JWT_SECRET, PORT (not committed)
 │   ├── middleware/
-│   │   └── auth.js            # JWT verification + role guards
+│   │   ├── auth.js            # JWT verification + role guards
+│   │   └── async.js           # Forwards async handler errors to Express
 │   └── routes/
 │       ├── auth.js            # POST /api/auth/login
 │       ├── users.js           # Owner + rider management
@@ -92,8 +95,13 @@ papertrail/
 │   │   │   ├── api.js         # All HTTP calls to backend
 │   │   │   └── gps.js         # Haversine distance calculation
 │   │   └── index.css          # Purple design system
+│   ├── .env.example           # Template for VITE_GOOGLE_MAPS_API_KEY (copy to .env)
 │   ├── .env.production        # VITE_API_URL for production build
 │   └── vite.config.js         # Dev server + proxy config
+├── db/
+│   ├── server.mjs             # Starts a local PostgreSQL server (embedded-postgres)
+│   └── data/                  # Local database files (not committed)
+├── start.sh                   # Starts database + backend + frontend together
 └── README.md
 ```
 
@@ -102,9 +110,11 @@ papertrail/
 ## ⚙️ Local Development Setup
 
 ### Prerequisites
-- Node.js v18+ 
+- Node.js v18+
 - Git
-- PostgreSQL (local) OR use Railway DB directly
+- PostgreSQL — **nothing to install**. The repo includes `db/`, which runs a real
+  PostgreSQL server as a normal Node process (no admin rights, no Windows service).
+  If you already have PostgreSQL installed, you can use it instead (see [Using your own PostgreSQL](#using-your-own-postgresql)).
 
 ### Step 1 — Clone the repo
 
@@ -113,7 +123,26 @@ git clone https://github.com/LathikaMBH/papertrail.git
 cd papertrail
 ```
 
-### Step 2 — Backend setup
+### Step 2 — Start the database
+
+```bash
+cd db
+npm install
+npm start
+```
+
+You should see:
+```
+PostgreSQL ready: postgresql://postgres:postgres@localhost:5432/papertrail
+```
+
+The first run creates the `papertrail` database in `db/data/`. Leave this terminal
+open — the database only runs while this process is running. Press `Ctrl+C` to stop it;
+your data is kept and is there next time.
+
+### Step 3 — Backend setup
+
+In a **new terminal**:
 
 ```bash
 cd backend
@@ -123,16 +152,7 @@ npm install
 Create a `.env` file in the `backend/` folder:
 
 ```env
-# For local PostgreSQL
-PG_HOST=localhost
-PG_PORT=5432
-PG_DATABASE=papertrail
-PG_USER=postgres
-PG_PASSWORD=your_password_here
-
-# OR use Railway DB directly (ask team lead for the URL)
-# DATABASE_URL=postgresql://...
-
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/papertrail
 JWT_SECRET=your_random_secret_here
 PORT=4000
 NODE_ENV=development
@@ -150,7 +170,10 @@ You should see:
 🚀 PaperTrail backend running on http://localhost:4000
 ```
 
-### Step 3 — Frontend setup
+The tables are created automatically on startup. If it can't reach the database it prints
+`❌ Could not connect to / set up PostgreSQL` and exits — make sure Step 2 is running.
+
+### Step 4 — Frontend setup
 
 ```bash
 cd frontend
@@ -160,12 +183,76 @@ npm run dev
 
 Open: **http://localhost:3000**
 
-### Step 4 — Login with default credentials
+The create-route and rider navigation screens use Google Maps, so they show an
+"API key needed" panel until you add a key — see [Google Maps setup](#google-maps-setup).
+Everything else works without one.
+
+### Step 5 — Login with default credentials
 
 ```
 Email:    admin@papertrail.com
 Password: admin123
 ```
+
+### Google Maps setup
+
+The create-route page (`/owner/routes/new`) and the rider navigation screen show a Google map.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/) create a project and **enable billing**
+   (Google requires a billing account, though Maps Platform has a monthly free allowance — check current pricing).
+2. Enable **Maps JavaScript API** (APIs & Services → Library).
+3. Create an API key (APIs & Services → Credentials → Create credentials → API key).
+4. **Restrict the key** — it is visible in the browser, so:
+   - *Application restrictions* → HTTP referrers: `http://localhost:3000/*` and your production domain (e.g. `https://papertrail-rauma.netlify.app/*`)
+   - *API restrictions* → Maps JavaScript API only
+5. Copy `frontend/.env.example` to `frontend/.env` and set:
+   ```env
+   VITE_GOOGLE_MAPS_API_KEY=your_key_here
+   VITE_GOOGLE_MAPS_MAP_ID=        # optional, see below
+   ```
+6. **Restart** `npm run dev` — Vite only reads `.env` at startup.
+
+**Map ID:** the map markers need a Map ID. Leave `VITE_GOOGLE_MAPS_MAP_ID` empty to use Google's
+`DEMO_MAP_ID` while developing. For production create your own (Google Maps Platform → Map Management →
+Create map ID, type *JavaScript*, vector) and put it in the variable.
+
+If the key is missing or Google rejects it, the map area shows a message saying why. GPS capture and
+delivery tracking keep working either way; only the map picture and tap-to-pin are affected.
+
+### One-command start (optional)
+
+From the project root, in Git Bash / macOS / Linux:
+
+```bash
+./start.sh
+```
+
+This installs missing dependencies, then starts the database, backend (port 4000) and
+frontend (port 3000) together. `Ctrl+C` stops all three.
+
+### Using your own PostgreSQL
+
+Skip Step 2 and point `DATABASE_URL` in `backend/.env` at your server (create the
+database first, e.g. `createdb papertrail`):
+
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/papertrail
+```
+
+Alternatively use separate variables: `PG_HOST`, `PG_PORT`, `PG_DATABASE`, `PG_USER`,
+`PG_PASSWORD`. For a hosted database that requires SSL, add `PG_SSL=true`.
+
+### Managing the local database
+
+| Task | How |
+|---|---|
+| **Back up** | Stop the database (`Ctrl+C`), then copy the `db/data/` folder |
+| **Reset to empty** | Stop the database, delete `db/data/`, start it again, then restart the backend (the admin is re-seeded) |
+| **Use another port** | `PG_PORT=5433 npm start` in `db/`, and update the port in `DATABASE_URL` |
+| **Import old data** | If you have a `papertrail.json` from the previous file-based version, run `node migrate-json-to-postgres.js` in `backend/` (safe to re-run) |
+
+> The default `postgres` / `postgres` credentials are for **local development only**.
+> Never use them on a server that is reachable from the network.
 
 ---
 
@@ -239,17 +326,23 @@ Clients join a room per route: `socket.emit('join:route', routeId)`
 ```sql
 users (id, name, email, password_hash, role, city, phone, owner_id, created_at)
   role: 'admin' | 'route_owner' | 'rider'
-  owner_id: FK → users.id (riders belong to a route_owner)
+  owner_id: riders belong to a route_owner (users.id)
 
 routes (id, name, status, owner_id, rider_id, started_at, paused_at, completed_at, created_at)
   status: 'not_started' | 'ongoing' | 'paused' | 'completed'
 
+  rider_id: FK → users.id, set to NULL if that rider is deleted (route becomes unassigned)
+
 stops (id, route_id, order_num, address, lat, lng, type, delivered, delivered_at, delivered_method, created_at)
   type: 'mailbox' | 'apartment'
+  route_id: FK → routes.id, deleted together with the route
   delivered_method: 'auto' | 'manual'
 
 location_pings (id, route_id, rider_id, lat, lng, recorded_at)
+  route_id: FK → routes.id, deleted together with the route
 ```
+
+The schema is created automatically by `backend/database.js` on startup (`CREATE TABLE IF NOT EXISTS`).
 
 ---
 
@@ -261,6 +354,7 @@ location_pings (id, route_id, rider_id, lat, lng, recorded_at)
 3. Add environment variables:
    ```
    DATABASE_URL = (Railway PostgreSQL reference)
+   PG_SSL       = true        # only if your host requires SSL
    JWT_SECRET   = your_secret_here
    NODE_ENV     = production
    PORT         = 4000
@@ -273,6 +367,13 @@ location_pings (id, route_id, rider_id, lat, lng, recorded_at)
    ```
    VITE_API_URL=https://papertrail-production-3f35.up.railway.app
    ```
+   Also set the map key **at build time** (Vite bakes it into the build), in `frontend/.env.production`
+   or as an environment variable when you run the build:
+   ```
+   VITE_GOOGLE_MAPS_API_KEY=your_restricted_key
+   VITE_GOOGLE_MAPS_MAP_ID=your_map_id
+   ```
+   Make sure the key's HTTP-referrer restriction includes your Netlify domain.
 3. Drag the `frontend/dist/` folder to Netlify dashboard
 4. The `dist/_redirects` file handles React Router (SPA routing)
 
@@ -320,10 +421,14 @@ improvement/rider-dashboard-ui
 | Problem | Fix |
 |---|---|
 | `vite is not recognized` | Run `npm install` in the frontend folder |
-| `Cannot connect to database` | Check your `.env` file has correct PostgreSQL credentials |
+| `Could not connect to / set up PostgreSQL` | Start the database first (`npm start` in `db/`), and check `DATABASE_URL` in `backend/.env` |
+| `ECONNREFUSED 127.0.0.1:5432` | Nothing is listening on 5432 — the local database isn't running, or another PostgreSQL is using a different port |
+| `EADDRINUSE` on port 5432 (starting `db/`) | Another PostgreSQL is already running there. Use it via `DATABASE_URL`, or start this one on another port: `PG_PORT=5433 npm start` |
 | `Login failed` on production | Check `VITE_API_URL` in `.env.production` has `https://` |
 | Blank page after login | Clear localStorage: `localStorage.clear()` in browser console |
 | GPS not working | Must be on HTTPS in production. Use localhost for local dev |
+| Map shows "Google Maps API key needed" | Add `VITE_GOOGLE_MAPS_API_KEY` to `frontend/.env` and restart `npm run dev` |
+| Map shows "Google rejected the API key" | Key wrong, Maps JavaScript API not enabled, billing off, or the key's referrer restriction doesn't include this site's address |
 
 ---
 

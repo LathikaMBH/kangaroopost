@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import api from '../../services/api';
+import RouteStatusTiles, { routeStatus } from '../../components/RouteStatusTiles';
+import RouteTable, { ViewToggle } from '../../components/RouteTable';
 
 const StatusBadge = ({ status }) => {
   const m = { not_started:['Not started','var(--mut)','var(--el)'], ongoing:['Ongoing','var(--amb)','#2A1A00'], paused:['Paused','#F59E0B','#2D1A00'], completed:['Completed','var(--grn)','#082E20'] };
@@ -17,6 +19,8 @@ export default function OwnerDashboard() {
   const [routes, setRoutes] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [view, setView] = useState('cards');
 
   const load = () => Promise.all([api.getRoutes(), api.getRiders()])
     .then(([r, ri]) => { setRoutes(r); setRiders(ri); })
@@ -34,12 +38,7 @@ export default function OwnerDashboard() {
     return () => { ['route:started','route:paused','route:resumed','route:completed','stop:delivered'].forEach(e => socket.off(e)); };
   }, [socket]);
 
-  const stats = {
-    total:     routes.length,
-    ongoing:   routes.filter(r => r.status === 'ongoing').length,
-    paused:    routes.filter(r => r.status === 'paused').length,
-    completed: routes.filter(r => r.status === 'completed').length,
-  };
+  const visibleRoutes = statusFilter ? routes.filter(r => routeStatus(r) === statusFilter) : routes;
 
   return (
     <div className="screen" style={{ padding:'0 22px 20px' }}>
@@ -54,12 +53,10 @@ export default function OwnerDashboard() {
         </button>
       </div>
 
-      {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:24 }}>
-        {[['Total',stats.total,'var(--tx)'],['Active',stats.ongoing,'var(--amb)'],['Paused',stats.paused,'#F59E0B'],['Done',stats.completed,'var(--grn)']].map(([l,v,c])=>(
-          <div key={l} className="stat-card"><div className="stat-val" style={{ color:c, fontSize:20 }}>{v}</div><div className="stat-lbl">{l}</div></div>
-        ))}
-      </div>
+      {/* Route status */}
+      <div className="section-label">Route status</div>
+      <RouteStatusTiles routes={routes} value={statusFilter} onChange={setStatusFilter} />
+      <div style={{ marginBottom:10 }} />
 
       {/* Quick actions */}
       <div className="section-label">Actions</div>
@@ -77,9 +74,11 @@ export default function OwnerDashboard() {
       </div>
 
       {/* Live routes */}
-      <div className="section-label">Routes</div>
+      <div className="section-label">Routes{statusFilter ? ' · filtered' : ''}</div>
+      <ViewToggle value={view} onChange={setView} />
       {loading && <div className="spinner" />}
-      {routes.map(r => {
+      {view === 'list' && !loading && <RouteTable routes={visibleRoutes} role="route_owner" onRowClick={r => navigate(`/owner/routes/${r.id}`)} emptyText={statusFilter ? 'No routes with this status' : 'No routes yet'} />}
+      {view === 'cards' && visibleRoutes.map(r => {
         const pct = r.stop_count ? Math.round(r.delivered_count / r.stop_count * 100) : 0;
         return (
           <div key={r.id} className="card" style={{ marginBottom:12, cursor:'pointer' }} onClick={() => navigate(`/owner/routes/${r.id}`)}>
@@ -107,10 +106,10 @@ export default function OwnerDashboard() {
           </div>
         );
       })}
-      {!loading && routes.length === 0 && (
+      {view === 'cards' && !loading && visibleRoutes.length === 0 && (
         <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:40 }}>
           <i className="ti ti-map-off" style={{ fontSize:48, display:'block', marginBottom:12 }} />
-          No routes yet
+          {statusFilter ? 'No routes with this status' : 'No routes yet'}
         </div>
       )}
     </div>

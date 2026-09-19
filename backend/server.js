@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { init } = require('./database');
 
 const app = express();
 const server = http.createServer(app);
@@ -27,6 +28,12 @@ app.use('/api/delivery', require('./routes/delivery'));
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
+// Any error thrown/rejected in a route handler ends up here
+app.use((err, _req, res, _next) => {
+  console.error('❌', err);
+  if (!res.headersSent) res.status(500).json({ error: 'Server error' });
+});
+
 // ── Socket.io ─────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
@@ -44,7 +51,12 @@ io.on('connection', (socket) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`\n🚀 PaperTrail backend running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
+init().then(() => {
+  server.listen(PORT, () => {
+    console.log(`\n🚀 PaperTrail backend running on http://localhost:${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
+  });
+}).catch(err => {
+  console.error('❌ Could not connect to / set up PostgreSQL:', err.message);
+  process.exit(1);
 });

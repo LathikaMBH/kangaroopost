@@ -2,14 +2,25 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import RouteStatusTiles, { STATUSES, routeStatus } from '../../components/RouteStatusTiles';
+import RouteTable, { ViewToggle } from '../../components/RouteTable';
 
 export default function RiderDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [view, setView] = useState('cards');
 
-  useEffect(() => { api.getRoutes().then(setRoutes).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    const load = () => api.getRoutes().then(setRoutes).catch(() => {}).finally(() => setLoading(false));
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  const visibleRoutes = statusFilter ? routes.filter(r => routeStatus(r) === statusFilter) : routes;
 
   return (
     <div className="screen" style={{ padding:'0 22px 20px' }}>
@@ -23,11 +34,16 @@ export default function RiderDashboard() {
         </div>
       </div>
 
-      <div className="section-label">Your Assigned Routes</div>
+      <div className="section-label">Route status</div>
+      <RouteStatusTiles routes={routes} value={statusFilter} onChange={setStatusFilter} />
 
+      <div className="section-label" style={{ marginTop:10 }}>Your Assigned Routes{statusFilter ? ' · filtered' : ''}</div>
+
+      <ViewToggle value={view} onChange={setView} />
       {loading && <div className="spinner" />}
+      {view === 'list' && !loading && <RouteTable routes={visibleRoutes} role="rider" onRowClick={r => r.status !== 'completed' && navigate(`/rider/navigate/${r.id}`)} emptyText={statusFilter ? 'No routes with this status' : 'No routes assigned yet'} />}
 
-      {routes.map(r => {
+      {view === 'cards' && visibleRoutes.map(r => {
         const mbox = 0; // would need stop details — shown as total for now
         const done = r.delivered_count || 0;
         const total = r.stop_count || 0;
@@ -41,7 +57,7 @@ export default function RiderDashboard() {
                 <div style={{ fontSize:20, fontWeight:700, marginTop:3 }}>{r.name}</div>
               </div>
               <span className={`badge badge-${r.status}`}>
-                {r.status === 'not_started' ? 'Not started' : r.status === 'ongoing' ? 'Ongoing' : 'Completed'}
+                {STATUSES.find(x => x.key === routeStatus(r))?.label}
               </span>
             </div>
 
@@ -59,7 +75,7 @@ export default function RiderDashboard() {
             </div>
 
             {/* Progress bar */}
-            {r.status === 'ongoing' && (
+            {(r.status === 'ongoing' || r.status === 'paused') && (
               <div style={{ marginBottom:14 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'var(--mut)', marginBottom:6 }}>
                   <span>Progress</span><span style={{ color:'var(--grn)', fontWeight:700 }}>{pct}%</span>
@@ -73,7 +89,7 @@ export default function RiderDashboard() {
             {r.status !== 'completed' && (
               <button className="btn btn-green" onClick={() => navigate(`/rider/navigate/${r.id}`)}>
                 <i className="ti ti-player-play" style={{ fontSize:18 }} />
-                {r.status === 'ongoing' ? 'Continue Route' : 'Start Route'}
+                {r.status === 'ongoing' || r.status === 'paused' ? 'Continue Route' : 'Start Route'}
               </button>
             )}
             {r.status === 'completed' && (
@@ -85,11 +101,10 @@ export default function RiderDashboard() {
         );
       })}
 
-      {!loading && routes.length === 0 && (
+      {view === 'cards' && !loading && visibleRoutes.length === 0 && (
         <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:60 }}>
           <i className="ti ti-calendar-off" style={{ fontSize:48, display:'block', marginBottom:12 }} />
-          No routes assigned yet<br/>
-          <span style={{ fontSize:13 }}>Contact your admin</span>
+          {statusFilter ? 'No routes with this status' : <>No routes assigned yet<br/><span style={{ fontSize:13 }}>Contact your admin</span></>}
         </div>
       )}
 
