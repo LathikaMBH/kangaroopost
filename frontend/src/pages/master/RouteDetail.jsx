@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
-import { TrashIcon, DELETE_BTN } from '../../components/RowActions';
+import { TrashIcon, PlusIcon, DELETE_BTN } from '../../components/RowActions';
 
 // base: '/owner' (route owners). The page is shared, so every link is built from it.
 export default function RouteDetail({ base = '/owner' }) {
@@ -54,6 +54,24 @@ export default function RouteDetail({ base = '/owner' }) {
   const apt  = route.stops?.filter(s=>s.type==='apartment').length || 0;
   const done = route.stops?.filter(s=>s.delivered).length || 0;
   const inProgress = route.status === 'ongoing' || route.status === 'paused';
+  const stopCount = route.stops?.length || 0;
+
+  // "+" between two stops (position = where the new stop will sit: 1 = first ... n+1 = last)
+  const insertGap = position => {
+    const label = position === 1 ? 'Add a stop at the start'
+      : position === stopCount + 1 ? 'Add a stop at the end'
+      : `Add a stop between stop ${position - 1} and stop ${position}`;
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:8, height:26 }}>
+        <div style={{ flex:1, height:1, background:'var(--border)' }} />
+        <button title={label} aria-label={label} onClick={() => navigate(`${base}/routes/${id}/edit?insert=${position}`)}
+          style={{ width:22, height:22, borderRadius:11, border:'1px solid var(--pr)', background:'var(--card)', color:'var(--pl)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0, flexShrink:0 }}>
+          <PlusIcon size={12} />
+        </button>
+        <div style={{ flex:1, height:1, background:'var(--border)' }} />
+      </div>
+    );
+  };
 
   return (
     <div className="screen">
@@ -93,26 +111,30 @@ export default function RouteDetail({ base = '/owner' }) {
         <div className="section-label">Stops ({route.stops?.length || 0})</div>
         {stopError && <div style={{ color:'var(--red)', fontSize:13, marginBottom:8 }}>{stopError}</div>}
         {inProgress && route.stops?.length > 0 && (
-          <div style={{ color:'var(--mut)', fontSize:12, marginBottom:8 }}>This route is in progress, so stops can't be deleted until it is finished.</div>
+          <div style={{ color:'var(--mut)', fontSize:12, marginBottom:8 }}>This route is in progress, so stops can't be added or deleted until it is finished.</div>
         )}
+        {stopCount > 0 && !inProgress && insertGap(1)}
         {route.stops?.map((s, i) => (
-          <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'var(--el)', borderRadius:12, marginBottom:8, border:`1px solid ${s.delivered?'var(--grn)44':s.type==='apartment'?'var(--apt)44':'var(--border)'}` }}>
-            <div style={{ width:28, height:28, borderRadius:9, background:s.delivered?'var(--grn)':s.type==='apartment'?'var(--apt)':'var(--pr)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:12, flexShrink:0 }}>
-              {s.delivered ? <i className="ti ti-check" style={{ fontSize:14 }} /> : i+1}
-            </div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ color:'var(--tx)', fontSize:13, fontWeight:500 }}>{s.address}</div>
-              <div style={{ color:'var(--mut)', fontSize:11, marginTop:1 }}>
-                {s.lat.toFixed(5)}°, {s.lng.toFixed(5)}°
-                {s.delivered && <span style={{ color:'var(--grn)' }}> · ✓ {s.delivered_method}</span>}
+          <div key={s.id}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'var(--el)', borderRadius:12, border:`1px solid ${s.delivered?'var(--grn)44':s.type==='apartment'?'var(--apt)44':'var(--border)'}` }}>
+              <div style={{ width:28, height:28, borderRadius:9, background:s.delivered?'var(--grn)':s.type==='apartment'?'var(--apt)':'var(--pr)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:12, flexShrink:0 }}>
+                {s.delivered ? <i className="ti ti-check" style={{ fontSize:14 }} /> : i+1}
               </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ color:'var(--tx)', fontSize:13, fontWeight:500 }}>{s.address}</div>
+                <div style={{ color:'var(--mut)', fontSize:11, marginTop:1 }}>
+                  {s.lat.toFixed(5)}°, {s.lng.toFixed(5)}°
+                  {s.delivered && <span style={{ color:'var(--grn)' }}> · ✓ {s.delivered_method}</span>}
+                </div>
+              </div>
+              <span className={`badge badge-${s.type}`}><i className={`ti ti-${s.type==='mailbox'?'mailbox':'building'}`} style={{ fontSize:10 }} /> {s.type}</span>
+              <button className="btn btn-danger btn-sm" title={inProgress ? "Can't delete while the route is in progress" : 'Delete stop'} aria-label={`Delete stop ${i+1}`}
+                disabled={inProgress} style={{ ...DELETE_BTN, opacity: inProgress ? 0.4 : 1, cursor: inProgress ? 'not-allowed' : 'pointer' }}
+                onClick={() => deleteStop(s, i)}>
+                <TrashIcon />
+              </button>
             </div>
-            <span className={`badge badge-${s.type}`}><i className={`ti ti-${s.type==='mailbox'?'mailbox':'building'}`} style={{ fontSize:10 }} /> {s.type}</span>
-            <button className="btn btn-danger btn-sm" title={inProgress ? "Can't delete while the route is in progress" : 'Delete stop'} aria-label={`Delete stop ${i+1}`}
-              disabled={inProgress} style={{ ...DELETE_BTN, opacity: inProgress ? 0.4 : 1, cursor: inProgress ? 'not-allowed' : 'pointer' }}
-              onClick={() => deleteStop(s, i)}>
-              <TrashIcon />
-            </button>
+            {!inProgress && insertGap(i + 2)}
           </div>
         ))}
         {(!route.stops || route.stops.length === 0) && (

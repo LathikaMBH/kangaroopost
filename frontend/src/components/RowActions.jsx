@@ -9,6 +9,12 @@ export const TrashIcon = () => (
   </svg>
 );
 
+export const PlusIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+    <path d="M12 5v14" /><path d="M5 12h14" />
+  </svg>
+);
+
 // compact text buttons: they may shrink below their text width and wrap, so nothing spills out of the card
 export const ACTION_BTN = { flex:'1 1 auto', minWidth:0, padding:'6px 8px', fontSize:12, gap:4, borderRadius:10 };
 
