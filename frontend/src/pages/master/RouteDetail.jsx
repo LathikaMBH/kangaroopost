@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
+import { TrashIcon, DELETE_BTN } from '../../components/RowActions';
 
 // base: '/owner' (route owners). The page is shared, so every link is built from it.
 export default function RouteDetail({ base = '/owner' }) {
@@ -10,6 +11,7 @@ export default function RouteDetail({ base = '/owner' }) {
   const [riders, setRiders] = useState([]);
   const [error, setError] = useState('');
   const [assignError, setAssignError] = useState('');
+  const [stopError, setStopError] = useState('');
 
   useEffect(() => {
     setError('');
@@ -23,6 +25,15 @@ export default function RouteDetail({ base = '/owner' }) {
       await api.assignRoute(id, rider_id === '' ? null : Number(rider_id));
       setRoute(await api.getRoute(id));
     } catch (e) { setAssignError(e?.error || 'Could not assign the rider'); }
+  };
+
+  const deleteStop = async (stop, index) => {
+    if (!confirm(`Delete stop ${index + 1} (${stop.address})?`)) return;
+    setStopError('');
+    try {
+      await api.deleteStop(stop.id);
+      setRoute(await api.getRoute(id));
+    } catch (e) { setStopError(e?.error || 'Could not delete the stop'); }
   };
 
   const back = () => navigate(`${base}/routes`);
@@ -42,6 +53,7 @@ export default function RouteDetail({ base = '/owner' }) {
   const mbox = route.stops?.filter(s=>s.type==='mailbox').length || 0;
   const apt  = route.stops?.filter(s=>s.type==='apartment').length || 0;
   const done = route.stops?.filter(s=>s.delivered).length || 0;
+  const inProgress = route.status === 'ongoing' || route.status === 'paused';
 
   return (
     <div className="screen">
@@ -79,6 +91,10 @@ export default function RouteDetail({ base = '/owner' }) {
 
         {/* Stop list */}
         <div className="section-label">Stops ({route.stops?.length || 0})</div>
+        {stopError && <div style={{ color:'var(--red)', fontSize:13, marginBottom:8 }}>{stopError}</div>}
+        {inProgress && route.stops?.length > 0 && (
+          <div style={{ color:'var(--mut)', fontSize:12, marginBottom:8 }}>This route is in progress, so stops can't be deleted until it is finished.</div>
+        )}
         {route.stops?.map((s, i) => (
           <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'var(--el)', borderRadius:12, marginBottom:8, border:`1px solid ${s.delivered?'var(--grn)44':s.type==='apartment'?'var(--apt)44':'var(--border)'}` }}>
             <div style={{ width:28, height:28, borderRadius:9, background:s.delivered?'var(--grn)':s.type==='apartment'?'var(--apt)':'var(--pr)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:12, flexShrink:0 }}>
@@ -92,6 +108,11 @@ export default function RouteDetail({ base = '/owner' }) {
               </div>
             </div>
             <span className={`badge badge-${s.type}`}><i className={`ti ti-${s.type==='mailbox'?'mailbox':'building'}`} style={{ fontSize:10 }} /> {s.type}</span>
+            <button className="btn btn-danger btn-sm" title={inProgress ? "Can't delete while the route is in progress" : 'Delete stop'} aria-label={`Delete stop ${i+1}`}
+              disabled={inProgress} style={{ ...DELETE_BTN, opacity: inProgress ? 0.4 : 1, cursor: inProgress ? 'not-allowed' : 'pointer' }}
+              onClick={() => deleteStop(s, i)}>
+              <TrashIcon />
+            </button>
           </div>
         ))}
         {(!route.stops || route.stops.length === 0) && (
