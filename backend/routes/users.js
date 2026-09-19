@@ -74,7 +74,10 @@ router.put('/owners/:id', auth, adminOnly, wrap(async (req, res) => {
   }
 }));
 router.delete('/owners/:id', auth, adminOnly, wrap(async (req, res) => {
-  await queries.deleteUser(req.params.id); res.json({ success: true });
+  const owner = await queries.getOwnerById(req.params.id);
+  if (!owner) return res.status(404).json({ error: 'Route owner not found' });
+  await queries.deleteOwnerCascade(owner.id);
+  res.json({ success: true });
 }));
 
 // ── Owner: get own riders ────────────────────────────────────────────────────
@@ -87,6 +90,7 @@ router.get('/riders', auth, ownerOrAdmin, wrap(async (req, res) => {
 router.post('/riders', auth, ownerOrAdmin, wrap(async (req, res) => {
   const owner_id = req.user.role === 'admin' ? req.body.owner_id : req.user.id;
   if (!owner_id) return res.status(400).json({ error: 'owner_id required' });
+  if (req.user.role === 'admin' && !await queries.getOwnerById(owner_id)) return res.status(400).json({ error: 'Route owner not found' });
   const count = await queries.countRidersByOwner(owner_id);
   if (count >= 5) return res.status(400).json({ error: 'Maximum 5 riders per route owner' });
   const { name, email, password, phone = '' } = req.body;

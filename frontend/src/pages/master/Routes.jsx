@@ -19,8 +19,13 @@ export default function MasterRoutes({ base = '/owner' }) {
 
   const deleteRoute = async (id, e) => {
     e.stopPropagation();
-    if (!confirm('Delete this route and all its stops?')) return;
-    await api.deleteRoute(id);
+    const route = routes.find(r => r.id === id);
+    const live = route && (route.status === 'ongoing' || route.status === 'paused');
+    if (!confirm(live
+      ? 'A rider is on this route right now. Deleting it will stop their delivery.\n\nDelete this route and all its stops anyway?'
+      : 'Delete this route and all its stops?')) return;
+    try { await api.deleteRoute(id); }
+    catch (err) { alert(err?.error || 'Could not delete the route'); }
     load();
   };
 

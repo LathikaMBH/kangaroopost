@@ -2,11 +2,12 @@ const router = require('express').Router();
 const wrap = require('../middleware/async');
 const { queries, setRouteStatus } = require('../database');
 const { auth } = require('../middleware/auth');
+const { canView, canRide, loadRoute, loadStop } = require('../middleware/access');
 
-// Start route
+// Start route (only the rider the route is assigned to)
 router.post('/start/:routeId', auth, wrap(async (req, res) => {
-  const route = await queries.getRouteById(req.params.routeId);
-  if (!route) return res.status(404).json({ error: 'Route not found' });
+  const route = await loadRoute(req, res, req.params.routeId, canRide);
+  if (!route) return;
   await queries.resetStops(route.id);
   await setRouteStatus(route.id, 'ongoing');
   req.io.to(`route_${route.id}`).emit('route:started', { routeId: route.id, riderId: req.user.id, riderName: req.user.name });
@@ -15,8 +16,8 @@ router.post('/start/:routeId', auth, wrap(async (req, res) => {
 
 // Pause route — GPS tracking stops on client side
 router.post('/pause/:routeId', auth, wrap(async (req, res) => {
-  const route = await queries.getRouteById(req.params.routeId);
-  if (!route) return res.status(404).json({ error: 'Route not found' });
+  const route = await loadRoute(req, res, req.params.routeId, canRide);
+  if (!route) return;
   await setRouteStatus(route.id, 'paused');
   req.io.to(`route_${route.id}`).emit('route:paused', { routeId: route.id, riderId: req.user.id });
   res.json(await queries.getRouteById(route.id));
@@ -24,17 +25,18 @@ router.post('/pause/:routeId', auth, wrap(async (req, res) => {
 
 // Resume route — GPS tracking restarts on client side
 router.post('/resume/:routeId', auth, wrap(async (req, res) => {
-  const route = await queries.getRouteById(req.params.routeId);
-  if (!route) return res.status(404).json({ error: 'Route not found' });
+  const route = await loadRoute(req, res, req.params.routeId, canRide);
+  if (!route) return;
   await setRouteStatus(route.id, 'ongoing');
   req.io.to(`route_${route.id}`).emit('route:resumed', { routeId: route.id, riderId: req.user.id });
   res.json(await queries.getRouteById(route.id));
 }));
 
-// Deliver a stop
+// Deliver a stop (only the assigned rider)
 router.post('/stop/:stopId', auth, wrap(async (req, res) => {
-  const stop = await queries.getStopById(req.params.stopId);
-  if (!stop) return res.status(404).json({ error: 'Stop not found' });
+  const found = await loadStop(req, res, req.params.stopId, canRide);
+  if (!found) return;
+  const { stop } = found;
   const { method = 'manual' } = req.body;
   const updated = await queries.deliverStop(method, stop.id);
   req.io.to(`route_${stop.route_id}`).emit('stop:delivered', { stopId: stop.id, routeId: stop.route_id, method, riderId: req.user.id });
@@ -47,19 +49,23 @@ router.post('/stop/:stopId', auth, wrap(async (req, res) => {
   res.json({ stop: updated, routeCompleted: allDone });
 }));
 
-// End route
+// End route (the assigned rider, or the route's owner / an admin closing a stuck route)
 router.post('/end/:routeId', auth, wrap(async (req, res) => {
-  await setRouteStatus(req.params.routeId, 'completed');
-  req.io.to(`route_${req.params.routeId}`).emit('route:completed', { routeId: req.params.routeId });
+  const route = await loadRoute(req, res, req.params.routeId, canView);
+  if (!route) return;
+  await setRouteStatus(route.id, 'completed');
+  req.io.to(`route_${route.id}`).emit('route:completed', { routeId: route.id });
   res.json({ success: true });
 }));
 
-// GPS ping
+// GPS ping (only the assigned rider)
 router.post('/ping', auth, wrap(async (req, res) => {
   const { routeId, lat, lng } = req.body;
   if (!routeId || !lat || !lng) return res.status(400).json({ error: 'routeId, lat, lng required' });
-  await queries.insertPing(routeId, req.user.id, lat, lng);
-  req.io.to(`route_${routeId}`).emit('rider:location', { routeId, riderId: req.user.id, riderName: req.user.name, lat, lng });
+  const route = await loadRoute(req, res, routeId, canRide);
+  if (!route) return;
+  await queries.insertPing(route.id, req.user.id, lat, lng);
+  req.io.to(`route_${route.id}`).emit('rider:location', { routeId: route.id, riderId: req.user.id, riderName: req.user.name, lat, lng });
   res.json({ success: true });
 }));
 
