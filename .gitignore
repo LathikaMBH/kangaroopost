@@ -1,6 +1,6 @@
 backend/.env
-backend/papertrail.json
-backend/papertrail.db
+backend/kangaroopost.json
+backend/kangaroopost.db
 node_modules/
 */node_modules/
 frontend/dist/

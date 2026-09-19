@@ -11,7 +11,14 @@ export function SocketProvider({ children }) {
 
   useEffect(() => {
     if (!user) { socketRef.current?.disconnect(); return; }
-    const s = io(window.location.origin, { path: '/socket.io', transports: ['websocket'] });
+    // Netlify redirects cannot carry WebSockets, so in production connect directly to the API host (VITE_API_URL).
+    // In development the Vite proxy handles it on the same origin.
+    const url = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+    const s = io(url, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      auth: cb => cb({ token: localStorage.getItem('kp_token') }),
+    });
     socketRef.current = s;
     setSocket(s);
     return () => { s.disconnect(); setSocket(null); };

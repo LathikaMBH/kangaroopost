@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'PaperTrail',
-        short_name: 'PaperTrail',
+        name: 'KangarooPost',
+        short_name: 'KangarooPost',
         description: 'Precision delivery route tracking',
         theme_color: '#7C5CEA',
         background_color: '#0E0930',

@@ -3,9 +3,17 @@ const wrap = require('../middleware/async');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { queries } = require('../database');
-const JWT_SECRET = process.env.JWT_SECRET || 'papertrail_secret_2024';
+const rateLimit = require('express-rate-limit');
+const { JWT_SECRET, isProd } = require('../config');
 
-router.post('/login', wrap(async (req, res) => {
+// only FAILED attempts count: 10 per 15 minutes per IP in production
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, limit: isProd ? 10 : 1000, skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7', legacyHeaders: false,
+  message: { error: 'Too many failed sign-in attempts. Try again in 15 minutes.' },
+});
+
+router.post('/login', loginLimiter, wrap(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   const user = await queries.getUserByEmail(email.toLowerCase().trim());

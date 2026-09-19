@@ -1,7 +1,7 @@
 #!/bin/bash
-# PaperTrail — start both backend and frontend
+# KangarooPost — start both backend and frontend
 
-echo "🚀 Starting PaperTrail..."
+echo "🚀 Starting KangarooPost..."
 
 # Install backend deps if needed
 if [ ! -d "backend/node_modules" ]; then

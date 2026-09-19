@@ -1,11 +1,9 @@
-# PaperTrail 🗺️
+# KangarooPost 🗺️
 ### GPS-Powered Delivery Route Tracking Platform
 
-[![Live App](https://img.shields.io/badge/Live%20App-papertrail--rauma.netlify.app-7C5CEA?style=flat-square)](https://papertrail-rauma.netlify.app)
-[![Backend](https://img.shields.io/badge/Backend-Railway-0B0D0E?style=flat-square)](https://papertrail-production-3f35.up.railway.app/api/health)
 [![License](https://img.shields.io/badge/License-Private-red?style=flat-square)]()
 
-PaperTrail is a full-stack Progressive Web App (PWA) for managing and tracking newspaper and parcel delivery routes. It uses real GPS auto-detection so riders are tracked automatically — no manual tapping required.
+KangarooPost is a full-stack Progressive Web App (PWA) for managing and tracking newspaper and parcel delivery routes. It uses real GPS auto-detection so riders are tracked automatically — no manual tapping required.
 
 > **Built with Claude AI** — This product was designed and developed using Claude AI (Anthropic) as an AI pair-programmer, from architecture and database design through to production deployment.
 
@@ -15,16 +13,16 @@ PaperTrail is a full-stack Progressive Web App (PWA) for managing and tracking n
 
 | Service | URL |
 |---|---|
-| **Frontend (Netlify)** | https://papertrail-rauma.netlify.app |
-| **Backend API (Railway)** | https://papertrail-production-3f35.up.railway.app |
-| **Health check** | https://papertrail-production-3f35.up.railway.app/api/health |
-| **GitHub repo** | https://github.com/LathikaMBH/papertrail |
+| **Frontend (Netlify)** | *set after deployment* |
+| **Backend API (Railway)** | *set after deployment* |
+| **Health check** | `<backend address>/api/health` |
+| **GitHub repo** | https://github.com/LathikaMBH/kangaroopost |
 
 ---
 
 ## 👥 User Roles
 
-PaperTrail has three distinct user roles:
+KangarooPost has three distinct user roles:
 
 ### 👑 Admin
 - Creates and manages Route Owner accounts (name, city, phone, email, password)
@@ -55,11 +53,11 @@ PaperTrail has three distinct user roles:
 | **Frontend** | React 18, Vite, React Router, Google Maps (`@vis.gl/react-google-maps`) |
 | **Real-time** | Socket.io (WebSockets) |
 | **Backend** | Node.js, Express.js |
-| **Database** | PostgreSQL 18 (`pg` driver) — local via `db/`, Railway managed in production |
+| **Database** | PostgreSQL 18 (`pg` driver) — local via `db/`, Railway PostgreSQL in production |
 | **Auth** | JWT (JSON Web Tokens) |
 | **Maps** | Google Maps JavaScript API — needs an API key (see [Google Maps setup](#google-maps-setup)) |
 | **GPS** | Browser Geolocation API + Haversine formula |
-| **Deployment** | Railway (backend + DB) · Netlify (frontend) |
+| **Deployment** | Railway (backend + PostgreSQL) · Netlify (frontend) |
 | **PWA** | Installable on iOS and Android from the browser |
 
 ---
@@ -67,11 +65,11 @@ PaperTrail has three distinct user roles:
 ## 📁 Project Structure
 
 ```
-papertrail/
+kangaroopost/
 ├── backend/
 │   ├── server.js              # Express + Socket.io entry point
 │   ├── database.js            # PostgreSQL (pg) connection + schema + queries
-│   ├── migrate-json-to-postgres.js  # One-off import from the old papertrail.json
+│   ├── migrate-json-to-postgres.js  # One-off import from the old kangaroopost.json
 │   ├── .env                   # DATABASE_URL, JWT_SECRET, PORT (not committed)
 │   ├── middleware/
 │   │   ├── auth.js            # JWT verification + role guards
@@ -119,8 +117,8 @@ papertrail/
 ### Step 1 — Clone the repo
 
 ```bash
-git clone https://github.com/LathikaMBH/papertrail.git
-cd papertrail
+git clone https://github.com/LathikaMBH/kangaroopost.git
+cd kangaroopost
 ```
 
 ### Step 2 — Start the database
@@ -133,10 +131,10 @@ npm start
 
 You should see:
 ```
-PostgreSQL ready: postgresql://postgres:postgres@localhost:5432/papertrail
+PostgreSQL ready: postgresql://postgres:postgres@localhost:5432/kangaroopost
 ```
 
-The first run creates the `papertrail` database in `db/data/`. Leave this terminal
+The first run creates the `kangaroopost` database in `db/data/`. Leave this terminal
 open — the database only runs while this process is running. Press `Ctrl+C` to stop it;
 your data is kept and is there next time.
 
@@ -152,7 +150,7 @@ npm install
 Create a `.env` file in the `backend/` folder:
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/papertrail
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/kangaroopost
 JWT_SECRET=your_random_secret_here
 PORT=4000
 NODE_ENV=development
@@ -166,8 +164,8 @@ npm start
 You should see:
 ```
 ✅ Database schema ready
-✅ Seed: admin@papertrail.com / admin123
-🚀 PaperTrail backend running on http://localhost:4000
+✅ Seed: admin@kangaroopost.com / admin123
+🚀 KangarooPost backend running on http://localhost:4000
 ```
 
 The tables are created automatically on startup. If it can't reach the database it prints
@@ -190,7 +188,7 @@ Everything else works without one.
 ### Step 5 — Login with default credentials
 
 ```
-Email:    admin@papertrail.com
+Email:    admin@kangaroopost.com
 Password: admin123
 ```
 
@@ -203,7 +201,7 @@ The create-route page (`/owner/routes/new`) and the rider navigation screen show
 2. Enable **Maps JavaScript API** (APIs & Services → Library).
 3. Create an API key (APIs & Services → Credentials → Create credentials → API key).
 4. **Restrict the key** — it is visible in the browser, so:
-   - *Application restrictions* → HTTP referrers: `http://localhost:3000/*` and your production domain (e.g. `https://papertrail-rauma.netlify.app/*`)
+   - *Application restrictions* → HTTP referrers: `http://localhost:3000/*` and your production domain (e.g. `https://your-site.netlify.app/*`)
    - *API restrictions* → Maps JavaScript API only
 5. Copy `frontend/.env.example` to `frontend/.env` and set:
    ```env
@@ -233,10 +231,10 @@ frontend (port 3000) together. `Ctrl+C` stops all three.
 ### Using your own PostgreSQL
 
 Skip Step 2 and point `DATABASE_URL` in `backend/.env` at your server (create the
-database first, e.g. `createdb papertrail`):
+database first, e.g. `createdb kangaroopost`):
 
 ```env
-DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/papertrail
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/kangaroopost
 ```
 
 Alternatively use separate variables: `PG_HOST`, `PG_PORT`, `PG_DATABASE`, `PG_USER`,
@@ -249,7 +247,7 @@ Alternatively use separate variables: `PG_HOST`, `PG_PORT`, `PG_DATABASE`, `PG_U
 | **Back up** | Stop the database (`Ctrl+C`), then copy the `db/data/` folder |
 | **Reset to empty** | Stop the database, delete `db/data/`, start it again, then restart the backend (the admin is re-seeded) |
 | **Use another port** | `PG_PORT=5433 npm start` in `db/`, and update the port in `DATABASE_URL` |
-| **Import old data** | If you have a `papertrail.json` from the previous file-based version, run `node migrate-json-to-postgres.js` in `backend/` (safe to re-run) |
+| **Import old data** | If you have a `kangaroopost.json` from the previous file-based version, run `node migrate-json-to-postgres.js` in `backend/` (safe to re-run) |
 
 > The default `postgres` / `postgres` credentials are for **local development only**.
 > Never use them on a server that is reachable from the network.
@@ -348,34 +346,73 @@ The schema is created automatically by `backend/database.js` on startup (`CREATE
 
 ## 🚀 Deployment
 
-### Backend — Railway
-1. Connect the GitHub repo to Railway
-2. Set **Root Directory** → `backend`
-3. Add environment variables:
-   ```
-   DATABASE_URL = (Railway PostgreSQL reference)
-   PG_SSL       = true        # only if your host requires SSL
-   JWT_SECRET   = your_secret_here
-   NODE_ENV     = production
-   PORT         = 4000
-   ```
-4. Railway auto-deploys on every `git push` to `main`
+Production layout: **Netlify** (frontend) → **Railway** service (backend) → **Railway PostgreSQL**.
+The browser talks to the backend directly, using the address in `VITE_API_URL`.
 
-### Frontend — Netlify
-1. Build locally: `npm run build` (inside `frontend/`)
-2. Ensure `frontend/.env.production` contains:
-   ```
-   VITE_API_URL=https://papertrail-production-3f35.up.railway.app
-   ```
-   Also set the map key **at build time** (Vite bakes it into the build), in `frontend/.env.production`
-   or as an environment variable when you run the build:
-   ```
-   VITE_GOOGLE_MAPS_API_KEY=your_restricted_key
-   VITE_GOOGLE_MAPS_MAP_ID=your_map_id
-   ```
-   Make sure the key's HTTP-referrer restriction includes your Netlify domain.
-3. Drag the `frontend/dist/` folder to Netlify dashboard
-4. The `dist/_redirects` file handles React Router (SPA routing)
+> ⚠️ **Order matters.** The backend refuses to start without the settings below (by design — it will not
+> run in production with a default password or secret). Create the database and set the variables
+> **before** the first deploy, because Railway deploys automatically when you push to the linked branch.
+
+### 1. Railway project + database
+1. Railway → **New Project → Deploy from GitHub repo** → pick this repository (do not deploy yet if it offers to; add the variables first).
+2. In the project: **+ New → Database → Add PostgreSQL**. Tables are created automatically on the backend's first start.
+
+### 2. Backend service
+Open the backend service → **Settings**:
+- **Root Directory:** `backend`
+- **Start command:** `npm start` (Railway normally detects this)
+- **Healthcheck path:** `/api/health`
+- **Networking → Generate Domain** — this is your backend address (e.g. `https://xxxx.up.railway.app`)
+
+Then **Variables** (Railway supplies `PORT` itself):
+
+| Variable | Value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (a reference to the database service — use its exact name if it is not "Postgres"). This is the private address; no SSL setting needed |
+| `JWT_SECRET` | **required**, 32+ random characters: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+| `CORS_ORIGINS` | **required**: your frontend address, e.g. `https://your-site.netlify.app` (comma-separate several, no trailing slash) |
+| `ADMIN_EMAIL` | first admin's email (used on the first start only) |
+| `ADMIN_PASSWORD` | first admin's password, 10+ characters (first start only). **Not** `admin123` |
+| `PG_SSL` | `true` only if you use the database's *public* URL from outside Railway |
+
+If a required value is missing the service stops at startup and the deploy log says exactly which one.
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` are only used to create the first admin; afterwards change the password in the app
+(**Owners → Password** for owners, or sign in as admin) and you can delete `ADMIN_PASSWORD` from Railway.
+
+### 3. Frontend (Netlify)
+Set these **before building** (Netlify → Site settings → Environment variables; or in `frontend/.env.production` if you
+build locally). Vite bakes them into the build, so change them → rebuild:
+```
+VITE_API_URL=https://xxxx.up.railway.app          # your Railway backend address, no trailing slash
+VITE_GOOGLE_MAPS_API_KEY=your_restricted_key
+VITE_GOOGLE_MAPS_MAP_ID=your_map_id               # create one in Google Cloud (see Google Maps setup)
+```
+Build `npm run build` in `frontend/` and deploy `dist/`, or connect the GitHub repo in Netlify
+(base directory `frontend`, build command `npm run build`, publish directory `dist` — already in `netlify.toml`).
+
+### 4. Google Maps key for production
+In Google Cloud Console → Credentials → your key → add your Netlify address to the **HTTP referrer**
+restrictions (e.g. `https://your-site.netlify.app/*`), keep it restricted to the *Maps JavaScript API*, and make
+sure billing is enabled.
+
+### 5. Smoke test after deploying
+1. `https://xxxx.up.railway.app/api/health` → `{"status":"ok"}`
+2. Open the site, sign in with the admin you created. The login page must **not** show any demo credentials.
+3. Create a route owner, sign in as them, create a route on the map (tap to pin), assign a rider, and check the
+   rider screen and the live status tiles.
+4. Open the site on a phone (GPS needs HTTPS — Netlify provides it).
+
+If sign-in fails with a network error, check `VITE_API_URL` (was the site rebuilt after setting it?) and `CORS_ORIGINS`
+(exact address, `https://`, no trailing slash).
+
+### Security notes
+- Sign-in is rate limited (10 failed attempts per 15 minutes per IP). Live-location sockets require a valid login,
+  and a user can only watch routes they own or are assigned to.
+- Passwords are stored hashed; the admin can set new passwords for owners, and owners for their riders.
+- Login tokens last 30 days and cannot be revoked individually — changing `JWT_SECRET` signs everyone out.
+- Railway bills by usage after its trial credit — check current pricing. Back up the database (Railway's backups
+  feature or `pg_dump`) before storing real data.
 
 ---
 
@@ -440,4 +477,4 @@ improvement/rider-dashboard-ui
 
 ---
 
-*PaperTrail — Precision delivery, every street* 🗺️
+*KangarooPost — Precision delivery, every street* 🗺️

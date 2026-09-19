@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { APIProvider, Map, AdvancedMarker, AdvancedMarkerAnchorPoint, Polyline, Circle, useMap } from '@vis.gl/react-google-maps';
 
-// Google Maps for PaperTrail (create-route page + rider navigation).
+// Google Maps for KangarooPost (create-route page + rider navigation).
 // The API key lives in frontend/.env as VITE_GOOGLE_MAPS_API_KEY (see .env.example).
 export const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 // Advanced markers need a Map ID. Google's DEMO_MAP_ID works for development; create your own for production.

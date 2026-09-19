@@ -1,15 +1,8 @@
-[[redirects]]
-  from = "/api/*"
-  to = "https://papertrail-p040.onrender.com/api/:splat"
-  status = 200
-  force = true
+[build]
+  command = "npm run build"
+  publish = "dist"
 
-[[redirects]]
-  from = "/socket.io/*"
-  to = "https://papertrail-p040.onrender.com/socket.io/:splat"
-  status = 200
-  force = true
-
+# single-page app: every path serves index.html (the API is called directly via VITE_API_URL)
 [[redirects]]
   from = "/*"
   to = "/index.html"

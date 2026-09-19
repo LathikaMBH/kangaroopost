@@ -1,12 +1,13 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+const { ADMIN_EMAIL, ADMIN_PASSWORD, isProd } = require('./config');
 
 const pool = new Pool(
   process.env.DATABASE_URL
     ? { connectionString: process.env.DATABASE_URL, ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : undefined }
     : {
         host: process.env.PG_HOST || 'localhost', port: Number(process.env.PG_PORT || 5432),
-        database: process.env.PG_DATABASE || 'papertrail',
+        database: process.env.PG_DATABASE || 'kangaroopost',
         user: process.env.PG_USER || 'postgres', password: process.env.PG_PASSWORD || 'postgres',
       }
 );
@@ -67,13 +68,14 @@ CREATE INDEX IF NOT EXISTS idx_stops_route  ON stops(route_id);
 async function init() {
   await q(SCHEMA);
   console.log('✅ Database schema ready');
-  const admin = await one('SELECT id FROM users WHERE email = $1', ['admin@papertrail.com']);
+  const admin = await one('SELECT id FROM users WHERE email = $1', [ADMIN_EMAIL]);
   if (!admin) {
+    if (!ADMIN_PASSWORD) throw new Error('No admin account exists yet: set ADMIN_EMAIL and ADMIN_PASSWORD to create the first admin');
     await q(
       `INSERT INTO users (name, email, password_hash, role, city) VALUES ($1,$2,$3,'admin','HQ')`,
-      ['Admin', 'admin@papertrail.com', bcrypt.hashSync('admin123', 10)]
+      ['Admin', ADMIN_EMAIL, bcrypt.hashSync(ADMIN_PASSWORD, 10)]
     );
-    console.log('✅ Seed: admin@papertrail.com / admin123');
+    console.log(isProd ? `✅ Seed: created admin ${ADMIN_EMAIL}` : `✅ Seed: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD} (development only)`);
   }
 }
 
