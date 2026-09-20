@@ -19,7 +19,7 @@ const io = new Server(server, {
 app.set('trust proxy', 1); // behind Railway's proxy: use the real client IP (rate limiting)
 app.use(helmet());
 app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' })); // a long route's road path is a few hundred KB at most
 
 // Attach io to every request so route handlers can emit events
 app.use((req, _res, next) => { req.io = io; next(); });

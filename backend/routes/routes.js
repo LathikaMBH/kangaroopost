@@ -14,7 +14,7 @@ router.get('/', auth, wrap(async (req, res) => {
 router.get('/:id', auth, wrap(async (req, res) => {
   const route = await loadRoute(req, res, req.params.id, canView);
   if (!route) return;
-  res.json({ ...route, stops: await queries.getStopsByRoute(route.id) });
+  res.json({ ...route, stops: await queries.getStopsByRoute(route.id), road_path: await queries.getRoadPath(route.id) });
 }));
 
 router.post('/', auth, ownerOrAdmin, wrap(async (req, res) => {
@@ -56,6 +56,27 @@ router.post('/:id/assign', auth, ownerOrAdmin, wrap(async (req, res) => {
   if (!r.ok) return;
   await queries.assignRoute(r.rider_id, route.id);
   res.json(await queries.getRouteById(route.id));
+}));
+
+// Save the road-following line for a route. The browser asks Google for the roads between consecutive stops and
+// posts the result here, so later views (and the riders) reuse it without calling Google again.
+//   legs: one encoded polyline per pair of consecutive stops (so stops - 1 legs)
+const ROAD_MODES = ['BICYCLE', 'WALK', 'DRIVE'];
+const ENCODED_POLYLINE = /^[?-~]{2,60000}$/;   // encoded polylines only use ASCII 63..126
+router.put('/:id/road-path', auth, wrap(async (req, res) => {
+  const route = await loadRoute(req, res, req.params.id, canView);   // owner, admin or the assigned rider
+  if (!route) return;
+  const { key, mode, legs, meters } = req.body;
+  if (typeof key !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(key)) return res.status(400).json({ error: 'Invalid key' });
+  if (!ROAD_MODES.includes(mode)) return res.status(400).json({ error: 'Invalid travel mode' });
+  if (!Array.isArray(legs) || legs.length < 1 || legs.length > 200 || !legs.every(l => typeof l === 'string' && ENCODED_POLYLINE.test(l))) {
+    return res.status(400).json({ error: 'Invalid legs' });
+  }
+  if (legs.reduce((n, l) => n + l.length, 0) > 400000) return res.status(400).json({ error: 'Road path is too large' });
+  const stopCount = (await queries.getStopsByRoute(route.id)).length;
+  if (legs.length !== stopCount - 1) return res.status(409).json({ error: 'The stops changed; recompute the road path' });
+  await queries.setRoadPath(route.id, { key, mode, legs, meters: Number.isFinite(Number(meters)) ? Math.round(Number(meters)) : null });
+  res.json({ success: true });
 }));
 
 router.get('/:id/stops', auth, wrap(async (req, res) => {
