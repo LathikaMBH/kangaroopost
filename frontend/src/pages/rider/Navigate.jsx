@@ -50,7 +50,7 @@ export default function RiderNavigate(){
 
   const stopGPS=()=>{if(watchRef.current){navigator.geolocation?.clearWatch(watchRef.current);watchRef.current=null;}if(pingRef.current){clearInterval(pingRef.current);pingRef.current=null;}};
 
-  const handleStart=async()=>{await api.startRoute(routeId);setStatus(S.RUNNING);setDelivered(new Set());setNextIdx(0);setWaitingApt(false);startGPS();};
+  const handleStart=async()=>{if(status===S.IDLE&&route?.status==='completed'&&!confirm('This route was already completed. Starting it again resets its delivered stops. Start again?'))return;try{await api.startRoute(routeId);}catch(e){alert(e?.error||'Could not start the route');return;}setStatus(S.RUNNING);setDelivered(new Set());setNextIdx(0);setWaitingApt(false);startGPS();};
   const handlePause=async()=>{pausedRef.current=true;await api.pauseRoute(routeId);setStatus(S.PAUSED);showToast('⏸ Route paused — GPS stopped','info');};
   const handleRestart=async()=>{await api.resumeRoute(routeId);setStatus(S.RUNNING);pausedRef.current=false;showToast('▶ Tracking resumed!','mailbox');};
   const handleEnd=async()=>{stopGPS();await api.endRoute(routeId);navigate('/rider');};
@@ -65,13 +65,14 @@ export default function RiderNavigate(){
 
   if(status===S.DONE)return(
     <div className="screen" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'0 24px 60px',textAlign:'center'}}>
-      <i className="ti ti-circle-check-filled" style={{fontSize:90,color:'var(--grn)',marginBottom:16}}/>
+      <i className="ti ti-circle-check" style={{fontSize:90,color:'var(--grn)',marginBottom:16}}/>
       <h2>Route Complete!</h2><p style={{marginTop:8}}>All {totalStops} stops delivered 🎉</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,margin:'28px 0',width:'100%'}}>
         {[['ti-mailbox','Total',totalStops],['ti-current-location','Auto',stops.filter(s=>s.type==='mailbox').length],['ti-building','Manual',stops.filter(s=>s.type==='apartment').length]].map(([ic,l,v])=>(
           <div key={l} className="stat-card"><i className={`ti ${ic}`} style={{fontSize:22,color:'var(--grn)',display:'block',marginBottom:6}}/><div style={{fontSize:22,fontWeight:700,color:'var(--grn)'}}>{v}</div><div style={{color:'var(--mut)',fontSize:11}}>{l}</div></div>
         ))}
       </div>
+      <button className="btn btn-green" style={{marginBottom:10}} onClick={handleStart}><i className="ti ti-refresh" style={{fontSize:18}}/> Start Again</button>
       <button className="btn btn-primary" onClick={()=>navigate('/rider')}>Back to Dashboard</button>
     </div>
   );
@@ -105,7 +106,7 @@ export default function RiderNavigate(){
           {openStop&&<InfoWindow position={{lat:openStop.lat,lng:openStop.lng}} pixelOffset={[0,-18]} onCloseClick={()=>setOpenId(null)}><div style={{color:'#222',fontSize:13}}>{openStop.address}<br/><small>{openStop.type}</small></div></InfoWindow>}
           {riderPos&&<DotMarker position={riderPos} size={24}/>}
         </MapCanvas>
-        {isPaused&&<div style={{position:'absolute',inset:0,background:'rgba(14,9,48,0.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:1000}}><i className="ti ti-player-pause-filled" style={{fontSize:48,color:'#F59E0B',marginBottom:8}}/><div style={{color:'#F59E0B',fontWeight:700,fontSize:16}}>GPS Paused</div><div style={{color:'#B8A4F8',fontSize:12,marginTop:4}}>Map tracking stopped</div></div>}
+        {isPaused&&<div style={{position:'absolute',inset:0,background:'rgba(14,9,48,0.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:1000}}><i className="ti ti-player-pause" style={{fontSize:48,color:'#F59E0B',marginBottom:8}}/><div style={{color:'#F59E0B',fontWeight:700,fontSize:16}}>GPS Paused</div><div style={{color:'#B8A4F8',fontSize:12,marginTop:4}}>Map tracking stopped</div></div>}
       </div>
 
       {status!==S.IDLE&&<div style={{display:'flex',gap:8,padding:'8px 22px 0',flexShrink:0}}>
@@ -149,7 +150,7 @@ export default function RiderNavigate(){
 
         {status===S.PAUSED&&<div>
           <div style={{background:'#2D1A00',borderRadius:16,padding:'12px 16px',marginBottom:10,border:'1px solid #F59E0B44',display:'flex',alignItems:'center',gap:12}}>
-            <i className="ti ti-player-pause-filled" style={{fontSize:24,color:'#F59E0B',flexShrink:0}}/>
+            <i className="ti ti-player-pause" style={{fontSize:24,color:'#F59E0B',flexShrink:0}}/>
             <div><div style={{color:'#F59E0B',fontWeight:600,fontSize:14}}>Route paused</div><div style={{color:'var(--mut)',fontSize:12}}>GPS stopped · {doneCount}/{totalStops} delivered</div></div>
           </div>
           <button className="btn btn-green" onClick={handleRestart}><i className="ti ti-player-play" style={{fontSize:20}}/> Restart Tracking</button>
