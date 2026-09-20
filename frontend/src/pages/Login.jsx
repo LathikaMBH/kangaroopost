@@ -37,7 +37,8 @@ export default function Login() {
   };
 
   return (
-    <div style={{ minHeight:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 24px 40px' }}>
+    <div style={{ height:'100%', overflowY:'auto', overscrollBehaviorY:'contain' }}>
+    <div style={{ minHeight:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px 24px 40px' }}>
       <div style={{ textAlign:'center', marginBottom:32 }}>
         <LOGO />
         <h1 style={{ marginTop:16 }}>KangarooPost</h1>
@@ -61,6 +62,7 @@ export default function Login() {
         <div style={{ color:'var(--mut)', marginBottom:8, fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.06em' }}>Demo credentials</div>
         <div style={{ color:'var(--sub)' }}>Admin: <span style={{ color:'var(--pl)' }}>admin@kangaroopost.com</span> / <span style={{ color:'var(--pl)' }}>admin123</span></div>
       </div>}
+    </div>
     </div>
   );
 }
