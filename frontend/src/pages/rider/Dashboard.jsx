@@ -41,7 +41,7 @@ export default function RiderDashboard() {
 
       <ViewToggle value={view} onChange={setView} />
       {loading && <div className="spinner" />}
-      {view === 'list' && !loading && <RouteTable routes={visibleRoutes} role="rider" onRowClick={r => r.status !== 'completed' && navigate(`/rider/navigate/${r.id}`)} emptyText={statusFilter ? 'No routes with this status' : 'No routes assigned yet'} />}
+      {view === 'list' && !loading && <RouteTable routes={visibleRoutes} role="rider" onRowClick={r => navigate(`/rider/navigate/${r.id}`)} emptyText={statusFilter ? 'No routes with this status' : 'No routes assigned yet'} />}
 
       {view === 'cards' && visibleRoutes.map(r => {
         const mbox = 0; // would need stop details — shown as total for now
@@ -86,17 +86,15 @@ export default function RiderDashboard() {
               </div>
             )}
 
-            {r.status !== 'completed' && (
-              <button className="btn btn-green" onClick={() => navigate(`/rider/navigate/${r.id}`)}>
-                <i className="ti ti-player-play" style={{ fontSize:18 }} />
-                {r.status === 'ongoing' || r.status === 'paused' ? 'Continue Route' : 'Start Route'}
-              </button>
-            )}
             {r.status === 'completed' && (
-              <div style={{ background:'#082E20', borderRadius:12, padding:'12px 16px', color:'var(--grn)', fontWeight:600, textAlign:'center' }}>
-                <i className="ti ti-circle-check-filled" /> Route Complete!
+              <div style={{ background:'#082E20', borderRadius:12, padding:'12px 16px', color:'var(--grn)', fontWeight:600, textAlign:'center', marginBottom:10 }}>
+                <i className="ti ti-circle-check" /> Route Complete!
               </div>
             )}
+            <button className="btn btn-green" onClick={() => navigate(`/rider/navigate/${r.id}`)}>
+              <i className={`ti ${r.status === 'completed' ? 'ti-refresh' : 'ti-player-play'}`} style={{ fontSize:18 }} />
+              {r.status === 'ongoing' || r.status === 'paused' ? 'Continue Route' : r.status === 'completed' ? 'Start Again' : 'Start Route'}
+            </button>
           </div>
         );
       })}
