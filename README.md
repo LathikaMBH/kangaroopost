@@ -199,11 +199,11 @@ The create-route page (`/owner/routes/new`) and the rider navigation screen show
 
 1. In [Google Cloud Console](https://console.cloud.google.com/) create a project and **enable billing**
    (Google requires a billing account, though Maps Platform has a monthly free allowance — check current pricing).
-2. Enable **Maps JavaScript API** (APIs & Services → Library).
+2. Enable **Maps JavaScript API** **and Routes API** (APIs & Services → Library). The Routes API draws the roads between stops.
 3. Create an API key (APIs & Services → Credentials → Create credentials → API key).
 4. **Restrict the key** — it is visible in the browser, so:
    - *Application restrictions* → HTTP referrers: `http://localhost:3000/*` and your production domain (e.g. `https://your-site.netlify.app/*`)
-   - *API restrictions* → Maps JavaScript API only
+   - *API restrictions* → Maps JavaScript API **and Routes API** (nothing else needed)
 5. Copy `frontend/.env.example` to `frontend/.env` and set:
    ```env
    VITE_GOOGLE_MAPS_API_KEY=your_key_here
@@ -217,6 +217,23 @@ Create map ID, type *JavaScript*, vector) and put it in the variable.
 
 If the key is missing or Google rejects it, the map area shows a message saying why. GPS capture and
 delivery tracking keep working either way; only the map picture and tap-to-pin are affected.
+
+### Roads between stops (Google Routes API)
+
+On the create-route page and the rider's navigation screen the line between stops follows real roads / cycle paths
+instead of a straight line.
+
+- **How it works:** the browser asks the Routes API for the road between each pair of consecutive stops, once, when a
+  route's stops change, and saves the result with the route (`routes.road_path`). Viewing a route, and every rider's
+  screen, reuses the saved path — no request to Google. A route of up to 12 stops is 1 request, 40 stops about 4.
+- **Travel mode:** `VITE_ROUTE_TRAVEL_MODE` = `BICYCLE` (default), `WALK` or `DRIVE` (see `frontend/.env.example`).
+  Changing it recomputes routes the next time someone opens them. Walking and cycling routes are in beta at Google; the
+  warning text Google requires is shown under the map.
+- **Cost:** Routes API requests are billed by Google (a free monthly allowance, then per 1,000 requests — see
+  [Google's pricing](https://developers.google.com/maps/billing-and-pricing/pricing)). To be safe, set a **daily quota**
+  on the Routes API and a **budget alert** in Google Cloud Console.
+- **If Google can't be reached** (API not enabled, quota used up, offline) the map keeps working and draws the straight
+  dashed line as before. Nothing wrong is saved.
 
 ### One-command start (optional)
 
@@ -412,6 +429,7 @@ If sign-in fails with a network error, check `VITE_API_URL` (was the site rebuil
   and a user can only watch routes they own or are assigned to.
 - **Who can do what with a route** (enforced by the server in `backend/middleware/access.js`): the admin, the route's owner and its assigned rider can *view* it; only the admin and the owner can *edit, delete, assign a rider or change stops* (and a rider must belong to that route's owner); only the assigned rider can *start, pause, resume, deliver stops or send GPS*; the assigned rider, the owner or the admin can *end* it. Deleting a route owner also deletes their riders, routes and stops.
 - Passwords are stored hashed; the admin can set new passwords for owners, and owners for their riders.
+- The saved road path is only a drawing aid (the app still marks stops delivered by GPS distance, not by the roads).
 - Login tokens last 30 days and cannot be revoked individually — changing `JWT_SECRET` signs everyone out.
 - Railway bills by usage after its trial credit — check current pricing. Back up the database (Railway's backups
   feature or `pg_dump`) before storing real data.

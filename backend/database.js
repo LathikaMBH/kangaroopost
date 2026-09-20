@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS location_pings (
 CREATE INDEX IF NOT EXISTS idx_routes_owner ON routes(owner_id);
 CREATE INDEX IF NOT EXISTS idx_routes_rider ON routes(rider_id);
 CREATE INDEX IF NOT EXISTS idx_stops_route  ON stops(route_id);
+
+-- the road-following line for a route (one encoded polyline per leg between two stops), computed by the browser
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS road_path JSONB;
 `;
 
 async function init() {
@@ -83,7 +86,8 @@ async function init() {
 const SAFE_USER = 'id, name, email, role, city, phone, owner_id, created_at';
 
 const ROUTE_SELECT = `
-  SELECT r.*, rd.name AS rider_name, ow.name AS owner_name,
+  SELECT r.id, r.name, r.owner_id, r.rider_id, r.status, r.started_at, r.paused_at, r.completed_at, r.created_at,
+         rd.name AS rider_name, ow.name AS owner_name,
          (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id)                 AS stop_count,
          (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.delivered) AS delivered_count
   FROM routes r
@@ -169,6 +173,9 @@ const queries = {
   },
 
   deleteRoute: (id) => q('DELETE FROM routes WHERE id = $1', [Number(id)]), // stops + pings cascade
+
+  getRoadPath: async (id) => (await one('SELECT road_path FROM routes WHERE id = $1', [Number(id)]))?.road_path || null,
+  setRoadPath: (id, roadPath) => q('UPDATE routes SET road_path = $2 WHERE id = $1', [Number(id), JSON.stringify(roadPath)]),
 
   assignRoute: (rider_id, route_id) => q('UPDATE routes SET rider_id = $1 WHERE id = $2', [rider_id ? Number(rider_id) : null, Number(route_id)]),
 

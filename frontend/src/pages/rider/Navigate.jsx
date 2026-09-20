@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import api from '../../services/api';
 import { getDistance, PROXIMITY_METRES } from '../../services/gps';
+import useRoadPath from '../../services/useRoadPath';
+import { MODE_WARNING } from '../../services/roads';
 
 
 
@@ -19,9 +21,12 @@ export default function RiderNavigate(){
   const[nextIdx,setNextIdx]=useState(0);const[delivered,setDelivered]=useState(new Set());
   const[waitingApt,setWaitingApt]=useState(false);const[toast,setToast]=useState(null);
   const[openId,setOpenId]=useState(null);
+  const[savedPath,setSavedPath]=useState(null);
   const watchRef=useRef(null);const pingRef=useRef(null);const processingRef=useRef(false);const pausedRef=useRef(false);const stopsRef=useRef([]);
 
-  useEffect(()=>{api.getRoute(routeId).then(r=>{setRoute(r);setStops(r.stops||[]);stopsRef.current=r.stops||[];});if(socket)socket.emit('join:route',routeId);return()=>stopGPS();},[routeId]);
+  useEffect(()=>{api.getRoute(routeId).then(r=>{setRoute(r);setStops(r.stops||[]);setSavedPath(r.road_path||null);stopsRef.current=r.stops||[];});if(socket)socket.emit('join:route',routeId);return()=>stopGPS();},[routeId]);
+
+  const road=useRoadPath({routeId,stops,saved:savedPath,canSave:true});   // roads between the stops (saved path, or asked from Google once)
 
   const showToast=(msg,type='mailbox')=>{setToast({msg,type,key:Date.now()});setTimeout(()=>setToast(null),3000);};
 
@@ -58,8 +63,9 @@ export default function RiderNavigate(){
   if(!route)return<div className="spinner" style={{marginTop:80}}/>;
   const totalStops=stops.length,doneCount=delivered.size,pct=totalStops?Math.round(doneCount/totalStops*100):0;
   const nextStop=stops[nextIdx],lastDone=nextIdx>0?stops[nextIdx-1]:null;
-  const doneLine=stops.slice(0,nextIdx+1).map(s=>[s.lat,s.lng]);
-  const remLine=stops.slice(nextIdx).map(s=>[s.lat,s.lng]);
+  const straight=(a,b)=>stops.slice(a,b).map(s=>[s.lat,s.lng]);
+  const doneLine=road.legs?road.legs.slice(0,nextIdx).flat():straight(0,nextIdx+1);
+  const remLine=road.legs?road.legs.slice(nextIdx).flat():straight(nextIdx);
   const isPaused=status===S.PAUSED;
   const openStop=stops.find(s=>s.id===openId);
 
@@ -100,7 +106,7 @@ export default function RiderNavigate(){
         <MapCanvas center={riderPos||[stops[0]?.lat||61.1282,stops[0]?.lng||21.5117]} zoom={16}>
           <MapFollow pos={riderPos} follow={status===S.RUNNING}/>
           <RouteLine path={doneLine} color="#22A05B" weight={5} opacity={0.85}/>
-          <RouteLine path={remLine} color="#4285F4" weight={3} opacity={0.3} dashed/>
+          <RouteLine path={remLine} color="#4285F4" weight={road.legs?4:3} opacity={road.legs?0.6:0.3} dashed={!road.legs}/>
           {nextStop&&status===S.RUNNING&&!waitingApt&&nextStop.type==='mailbox'&&<RadiusCircle center={[nextStop.lat,nextStop.lng]} radius={PROXIMITY_METRES} color="#4285F4"/>}
           {stops.map((s,i)=>{const isDone=delivered.has(s.id);const isCurr=i===nextIdx&&status!==S.IDLE;const color=isDone?'#22A05B':isCurr?(s.type==='apartment'?'#F59E0B':'#4285F4'):'#888';return<CircleMarker key={s.id} position={[s.lat,s.lng]} color={color} label={isDone?'✓':i+1} size={isCurr?36:28} onClick={()=>setOpenId(s.id)}/>;})}
           {openStop&&<InfoWindow position={{lat:openStop.lat,lng:openStop.lng}} pixelOffset={[0,-18]} onCloseClick={()=>setOpenId(null)}><div style={{color:'#222',fontSize:13}}>{openStop.address}<br/><small>{openStop.type}</small></div></InfoWindow>}
@@ -161,6 +167,8 @@ export default function RiderNavigate(){
         <i className="ti ti-info-circle" style={{fontSize:15,color:'var(--pl)',flexShrink:0}}/>
         <span>{isPaused?'Press Restart to resume GPS and continue tracking':<><strong style={{color:'var(--grn)'}}>Mailboxes</strong> auto {PROXIMITY_METRES}m · <strong style={{color:'var(--apt)'}}>Apartments</strong> tap</>}</span>
       </div>
+
+      {road.legs&&MODE_WARNING&&<div style={{margin:'6px 22px 0',fontSize:10,lineHeight:1.4,color:'var(--mut)',flexShrink:0}}>{MODE_WARNING}</div>}
 
       {toast&&<div key={toast.key} className={`toast${toast.type==='apartment'||toast.type==='info'?' apt':''}`}>{toast.msg}</div>}
     </div>

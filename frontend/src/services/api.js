@@ -33,6 +33,7 @@ export default {
   assignRoute:   (id, rid)  => api.post(`/routes/${id}/assign`, { rider_id: rid }),
   // Stops
   createStop:    (rid, d)   => api.post(`/routes/${rid}/stops`, d),
+  saveRoadPath:  (rid, d)   => api.put(`/routes/${rid}/road-path`, d),
   updateStop:    (id, d)    => api.put(`/stops/${id}`, d),
   deleteStop:    (id)       => api.delete(`/stops/${id}`),
   // Delivery

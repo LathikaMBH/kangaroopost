@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { InfoWindow } from '@vis.gl/react-google-maps';
 import api from '../../services/api';
 import MapCanvas, { MapFocus, CircleMarker, DotMarker, RouteLine } from '../../components/GoogleMapView';
+import useRoadPath from '../../services/useRoadPath';
+import { MODE_WARNING } from '../../services/roads';
 
 const RAUMA = [61.1282, 21.5117]; // default map centre
 
@@ -24,6 +26,7 @@ export default function CreateRoute({ base = '/owner' }) {
   const [routeId, setRouteId] = useState(id || null);
   const [focus, setFocus] = useState(null);   // where the map should pan to
   const [openId, setOpenId] = useState(null); // stop whose edit bubble is open
+  const [savedPath, setSavedPath] = useState(null); // the road path already saved with this route
   const watchRef = useRef(null);
 
   // Load existing route if editing
@@ -32,6 +35,7 @@ export default function CreateRoute({ base = '/owner' }) {
     api.getRoute(id).then(r => {
       setRouteName(r.name);
       setStops(r.stops || []);
+      setSavedPath(r.road_path || null);
       if (r.stops?.length) setFocus([r.stops[0].lat, r.stops[0].lng]);
     });
   }, [id]);
@@ -116,6 +120,8 @@ export default function CreateRoute({ base = '/owner' }) {
   };
 
   const polylinePoints = stops.map(s => [s.lat, s.lng]);
+  // the roads between the stops (asked from Google only when the stops changed, then saved with the route)
+  const road = useRoadPath({ routeId, stops, saved: savedPath, canSave: true });
   const mboxCount = stops.filter(s => s.type === 'mailbox').length;
   const aptCount  = stops.filter(s => s.type === 'apartment').length;
   const openIdx   = stops.findIndex(s => s.id === openId);
@@ -153,7 +159,9 @@ export default function CreateRoute({ base = '/owner' }) {
           <MapFocus target={focus} />
 
           {/* Route line */}
-          <RouteLine path={polylinePoints} color="#7C5CEA" weight={3} opacity={0.7} dashed />
+          {road.legs
+            ? <RouteLine path={road.legs.flat()} color="#7C5CEA" weight={4} opacity={0.85} />
+            : <RouteLine path={polylinePoints} color="#7C5CEA" weight={3} opacity={0.7} dashed />}
 
           {/* Stop markers */}
           {stops.map((s, i) => (
@@ -196,6 +204,12 @@ export default function CreateRoute({ base = '/owner' }) {
           </button>
         )}
       </div>
+
+      {(road.status === 'loading' || (road.legs && MODE_WARNING)) && (
+        <div style={{ margin:'6px 22px 0', fontSize:10.5, lineHeight:1.4, color:'var(--mut)', flexShrink:0 }}>
+          {road.status === 'loading' ? 'Finding the roads between the stops…' : MODE_WARNING}
+        </div>
+      )}
 
       {/* Controls */}
       <div style={{ padding:'12px 22px 0', flexShrink:0 }}>
