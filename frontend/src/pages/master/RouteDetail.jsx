@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
 import { TrashIcon, PlusIcon, PinIcon, DELETE_BTN, LOCATE_BTN } from '../../components/RowActions';
@@ -14,6 +14,17 @@ export default function RouteDetail({ base = '/owner' }) {
   const [assignError, setAssignError] = useState('');
   const [stopError, setStopError] = useState('');
   const [locateStop, setLocateStop] = useState(null);
+  const [locateNonce, setLocateNonce] = useState(0);
+  const mapCardRef = useRef(null);
+
+  const locate = stop => { setLocateStop(stop); setLocateNonce(n => n + 1); };
+
+  // scroll the map card into view every time a stop is located (nonce changes even on
+  // re-clicking the same stop), so it's visible even if the clicked stop is far below
+  // the map's position in the list
+  useEffect(() => {
+    if (locateStop && mapCardRef.current) mapCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [locateNonce]);
 
   useEffect(() => {
     setError('');
@@ -111,7 +122,7 @@ export default function RouteDetail({ base = '/owner' }) {
 
         {/* Locate a single stop on the map */}
         {locateStop && (
-          <div className="card" style={{ marginBottom:16, padding:0, overflow:'hidden' }}>
+          <div ref={mapCardRef} className="card" style={{ marginBottom:16, padding:0, overflow:'hidden', scrollMarginTop:16 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--border)' }}>
               <div style={{ minWidth:0 }}>
                 <div style={{ color:'var(--tx)', fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{locateStop.address}</div>
@@ -152,7 +163,7 @@ export default function RouteDetail({ base = '/owner' }) {
               </div>
               <span className={`badge badge-${s.type}`}><i className={`ti ti-${s.type==='mailbox'?'mailbox':'building'}`} style={{ fontSize:10 }} /> {s.type}</span>
               <button className="btn btn-ghost btn-sm" title="Show this stop's location on the map" aria-label={`Locate stop ${i+1} on the map`}
-                style={LOCATE_BTN} onClick={() => setLocateStop(s)}>
+                style={LOCATE_BTN} onClick={() => locate(s)}>
                 <PinIcon />
               </button>
               <button className="btn btn-danger btn-sm" title={inProgress ? "Can't delete while the route is in progress" : 'Delete stop'} aria-label={`Delete stop ${i+1}`}
