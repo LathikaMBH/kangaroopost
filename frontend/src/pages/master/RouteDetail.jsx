@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
-import { TrashIcon, PlusIcon, DELETE_BTN } from '../../components/RowActions';
+import { TrashIcon, PlusIcon, PinIcon, DELETE_BTN, LOCATE_BTN } from '../../components/RowActions';
+import MapCanvas, { MapFocus, CircleMarker } from '../../components/GoogleMapView';
 
 // base: '/owner' (route owners). The page is shared, so every link is built from it.
 export default function RouteDetail({ base = '/owner' }) {
@@ -12,6 +13,7 @@ export default function RouteDetail({ base = '/owner' }) {
   const [error, setError] = useState('');
   const [assignError, setAssignError] = useState('');
   const [stopError, setStopError] = useState('');
+  const [locateStop, setLocateStop] = useState(null);
 
   useEffect(() => {
     setError('');
@@ -107,6 +109,27 @@ export default function RouteDetail({ base = '/owner' }) {
           )}
         </div>
 
+        {/* Locate a single stop on the map */}
+        {locateStop && (
+          <div className="card" style={{ marginBottom:16, padding:0, overflow:'hidden' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ minWidth:0 }}>
+                <div style={{ color:'var(--tx)', fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{locateStop.address}</div>
+                <div style={{ color:'var(--mut)', fontSize:11 }}>{locateStop.lat.toFixed(5)}°, {locateStop.lng.toFixed(5)}°</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" style={{ flexShrink:0, padding:'4px 8px' }} onClick={() => setLocateStop(null)}>
+                <i className="ti ti-x" style={{ fontSize:14 }} />
+              </button>
+            </div>
+            <div style={{ height:260 }}>
+              <MapCanvas center={[locateStop.lat, locateStop.lng]} zoom={17}>
+                <MapFocus target={[locateStop.lat, locateStop.lng]} zoom={17} />
+                <CircleMarker position={[locateStop.lat, locateStop.lng]} color="#E11D48" size={36} label={<PinIcon size={16} />} />
+              </MapCanvas>
+            </div>
+          </div>
+        )}
+
         {/* Stop list */}
         <div className="section-label">Stops ({route.stops?.length || 0})</div>
         {stopError && <div style={{ color:'var(--red)', fontSize:13, marginBottom:8 }}>{stopError}</div>}
@@ -128,6 +151,10 @@ export default function RouteDetail({ base = '/owner' }) {
                 </div>
               </div>
               <span className={`badge badge-${s.type}`}><i className={`ti ti-${s.type==='mailbox'?'mailbox':'building'}`} style={{ fontSize:10 }} /> {s.type}</span>
+              <button className="btn btn-ghost btn-sm" title="Show this stop's location on the map" aria-label={`Locate stop ${i+1} on the map`}
+                style={LOCATE_BTN} onClick={() => setLocateStop(s)}>
+                <PinIcon />
+              </button>
               <button className="btn btn-danger btn-sm" title={inProgress ? "Can't delete while the route is in progress" : 'Delete stop'} aria-label={`Delete stop ${i+1}`}
                 disabled={inProgress} style={{ ...DELETE_BTN, opacity: inProgress ? 0.4 : 1, cursor: inProgress ? 'not-allowed' : 'pointer' }}
                 onClick={() => deleteStop(s, i)}>
