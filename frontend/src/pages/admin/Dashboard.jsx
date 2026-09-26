@@ -32,16 +32,18 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="screen" style={{ padding:'0 22px 20px' }}>
-      <div style={{ paddingTop:52, display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+    <div className="screen">
+      <div className="page-header">
         <div>
-          <p style={{ fontSize:11, color:'var(--mut)', margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>Admin Panel</p>
-          <h2 style={{ fontSize:20 }}>Welcome, {user?.name}</h2>
+          <p style={{ fontSize:11, color:'rgba(255,255,255,0.75)', margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>Admin Panel</p>
+          <h2 style={{ fontSize:20, color:'#fff' }}>Welcome, {user?.name}</h2>
         </div>
         <button onClick={() => { logout(); navigate('/login'); }} className="btn btn-ghost btn-sm">
           <i className="ti ti-logout" style={{ fontSize:16 }} />
         </button>
       </div>
+
+      <div style={{ padding:'0 22px 20px' }}>
 
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:24 }}>
@@ -107,6 +109,7 @@ export default function AdminDashboard() {
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }

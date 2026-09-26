@@ -160,12 +160,12 @@ export default function CreateRoute({ base = '/owner' }) {
 
           {/* Route line */}
           {road.legs
-            ? <RouteLine path={road.legs.flat()} color="#7C5CEA" weight={4} opacity={0.85} />
-            : <RouteLine path={polylinePoints} color="#7C5CEA" weight={3} opacity={0.7} dashed />}
+            ? <RouteLine path={road.legs.flat()} color="#6D3FE0" weight={4} opacity={0.85} />
+            : <RouteLine path={polylinePoints} color="#6D3FE0" weight={3} opacity={0.7} dashed />}
 
           {/* Stop markers */}
           {stops.map((s, i) => (
-            <CircleMarker key={s.id} position={[s.lat, s.lng]} color={s.type === 'apartment' ? '#F59E0B' : '#7C5CEA'}
+            <CircleMarker key={s.id} position={[s.lat, s.lng]} color={s.type === 'apartment' ? '#B5720A' : '#6D3FE0'}
               label={i + 1} onClick={() => setOpenId(s.id)} />
           ))}
 
@@ -193,7 +193,7 @@ export default function CreateRoute({ base = '/owner' }) {
 
       {/* GPS status bar */}
       <div style={{ margin:'0 22px', padding:'7px 12px', background:'#F2EFE8', borderRadius:'0 0 12px 12px', borderTop:'none', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-        <div style={{ width:9, height:9, borderRadius:'50%', background: gpsPos ? '#22A05B' : '#F59E0B', flexShrink:0 }} />
+        <div style={{ width:9, height:9, borderRadius:'50%', background: gpsPos ? '#1C9A54' : '#B5720A', flexShrink:0 }} />
         <span style={{ fontSize:11, color:'#5F5A55', flex:1 }}>
           {gpsPos ? `GPS locked ±${gpsAccuracy}m · Tap map or press button to pin` : 'Searching for GPS signal...'}
         </span>
@@ -218,13 +218,13 @@ export default function CreateRoute({ base = '/owner' }) {
         <div style={{ display:'flex', gap:10, marginBottom:12 }}>
           <button onClick={() => setNextType('mailbox')}
             style={{ flex:1, padding:11, borderRadius:12, border:`1.5px solid ${nextType==='mailbox'?'var(--grn)':'var(--border)'}`,
-              cursor:'pointer', background:nextType==='mailbox'?'#082E20':'var(--el)',
+              cursor:'pointer', background:nextType==='mailbox'?'var(--grn-tint)':'var(--el)',
               color:nextType==='mailbox'?'var(--grn)':'var(--mut)', fontWeight:600, fontSize:13, fontFamily:'inherit' }}>
             <i className="ti ti-mailbox" /> Mailbox (auto-detect)
           </button>
           <button onClick={() => setNextType('apartment')}
             style={{ flex:1, padding:11, borderRadius:12, border:`1.5px solid ${nextType==='apartment'?'var(--apt)':'var(--border)'}`,
-              cursor:'pointer', background:nextType==='apartment'?'#2D1A00':'var(--el)',
+              cursor:'pointer', background:nextType==='apartment'?'var(--amber-tint)':'var(--el)',
               color:nextType==='apartment'?'var(--apt)':'var(--mut)', fontWeight:600, fontSize:13, fontFamily:'inherit' }}>
             <i className="ti ti-building" /> Apartment (manual)
           </button>

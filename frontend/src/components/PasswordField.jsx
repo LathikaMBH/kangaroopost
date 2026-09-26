@@ -98,7 +98,7 @@ export function CredentialsNotice({ title, email, password, onDismiss }) {
   const [copied, setCopied] = useState(false);
   const text = `Email: ${email}\nPassword: ${password}`;
   return (
-    <div className="card" style={{ marginBottom:20, borderColor:'var(--grn)66', background:'#082E20' }}>
+    <div className="card" style={{ marginBottom:20, borderColor:'var(--grn)66', background:'var(--grn-tint)' }}>
       <div style={{ color:'var(--grn)', fontWeight:600, fontSize:14, marginBottom:8 }}><i className="ti ti-circle-check" /> {title}</div>
       <div style={{ fontSize:12, color:'var(--sub)', marginBottom:10 }}>
         Share these login details now. The password is stored encrypted and <b>cannot be shown again</b>.

@@ -36,16 +36,18 @@ export default function MasterDashboard() {
   const today = new Date().toLocaleDateString('en-FI', { weekday:'long', month:'long', day:'numeric' });
 
   return (
-    <div className="screen" style={{ padding:'0 22px 20px' }}>
-      <div style={{ paddingTop:56, display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
+    <div className="screen">
+      <div className="page-header">
         <div>
-          <p style={{ fontSize:12, color:'var(--mut)', margin:0 }}>Good morning,</p>
-          <h2 style={{ fontSize:20 }}>{user?.name}</h2>
+          <p style={{ fontSize:12, color:'rgba(255,255,255,0.75)', margin:0 }}>Good morning,</p>
+          <h2 style={{ fontSize:20, color:'#fff' }}>{user?.name}</h2>
         </div>
-        <div style={{ width:44, height:44, borderRadius:22, background:'var(--pr)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700, fontSize:18 }}>
+        <div style={{ width:44, height:44, borderRadius:22, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--pr)', fontWeight:700, fontSize:18 }}>
           {user?.name?.[0]}
         </div>
       </div>
+
+      <div style={{ padding:'0 22px 20px' }}>
 
       <p style={{ color:'var(--sub)', fontSize:13, marginBottom:20 }}>{today}</p>
 
@@ -97,6 +99,7 @@ export default function MasterDashboard() {
           No routes yet — create one!
         </div>
       )}
+      </div>
     </div>
   );
 }

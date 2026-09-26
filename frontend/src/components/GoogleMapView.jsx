@@ -12,9 +12,9 @@ export const toLL = p => (Array.isArray(p) ? { lat: p[0], lng: p[1] } : p);
 
 function MapMessage({ title, children }) {
   return (
-    <div style={{ position:'absolute', inset:0, background:'#1A1530', color:'#D9D3F5', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'14px 18px', gap:6, zIndex:5 }}>
-      <i className="ti ti-map-off" style={{ fontSize:30, color:'#F59E0B' }} />
-      <div style={{ fontWeight:700, fontSize:14, color:'#fff' }}>{title}</div>
+    <div style={{ position:'absolute', inset:0, background:'var(--el)', color:'var(--mut)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'14px 18px', gap:6, zIndex:5 }}>
+      <i className="ti ti-map-off" style={{ fontSize:30, color:'var(--apt)' }} />
+      <div style={{ fontWeight:700, fontSize:14, color:'var(--tx)' }}>{title}</div>
       <div style={{ fontSize:11.5, lineHeight:1.5, maxWidth:300 }}>{children}</div>
     </div>
   );

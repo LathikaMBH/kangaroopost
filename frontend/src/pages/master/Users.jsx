@@ -30,7 +30,7 @@ export default function MasterUsers() {
       <div className="page-header">
         <button className="back-btn" onClick={() => navigate('/master')}><i className="ti ti-arrow-left" /></button>
         <h3>Riders</h3>
-        <button className="btn btn-sm" style={{ background:'var(--pr)', color:'#fff', padding:'8px 12px' }}
+        <button className="btn btn-sm" style={{ background:'#fff', color:'var(--pr)', padding:'8px 12px' }}
           onClick={() => setShowForm(!showForm)}>
           <i className={`ti ti-${showForm?'x':'plus'}`} />
         </button>

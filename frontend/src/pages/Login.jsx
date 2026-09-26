@@ -53,7 +53,7 @@ export default function Login() {
           <label className="label">Password</label>
           <input className="input" style={INPUT_STYLE} type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} required />
         </div>
-        {error && <div style={{ background:'#2A0808', border:'1px solid #541212', borderRadius:12, padding:'10px 14px', color:'#F87171', fontSize:13 }}><i className="ti ti-alert-triangle" /> {error}</div>}
+        {error && <div style={{ background:'var(--red-tint)', border:'1px solid #C2343855', borderRadius:12, padding:'10px 14px', color:'var(--red)', fontSize:13 }}><i className="ti ti-alert-triangle" /> {error}</div>}
         <button className="btn btn-primary" style={BUTTON_STYLE} type="submit" disabled={loading}>
           {loading ? 'Signing in...' : <><i className="ti ti-arrow-right" /> Sign In</>}
         </button>
