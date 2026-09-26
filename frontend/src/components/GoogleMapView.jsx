@@ -78,6 +78,20 @@ export function MapFocus({ target, zoom }) {
   return null;
 }
 
+// Fit the map to show every position at once (e.g. a route's stops). Re-fits when the set of positions changes.
+export function MapFitBounds({ positions, padding = 56 }) {
+  const map = useMap();
+  const key = positions?.map(p => { const ll = toLL(p); return `${ll?.lat},${ll?.lng}`; }).join(';');
+  useEffect(() => {
+    if (!map || !positions || positions.length === 0) return;
+    if (positions.length === 1) { map.setCenter(toLL(positions[0])); map.setZoom(16); return; }
+    const bounds = new window.google.maps.LatLngBounds();
+    positions.forEach(p => bounds.extend(toLL(p)));
+    map.fitBounds(bounds, padding);
+  }, [map, key, padding]);
+  return null;
+}
+
 // Follow a moving position (rider). First fix jumps + zooms in, afterwards it pans smoothly.
 export function MapFollow({ pos, follow, zoom = 17 }) {
   const map = useMap();
