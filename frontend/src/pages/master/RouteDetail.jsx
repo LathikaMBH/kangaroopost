@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
 import { TrashIcon, PlusIcon, PinIcon, DELETE_BTN, LOCATE_BTN } from '../../components/RowActions';
-import MapCanvas, { MapFocus, CircleMarker } from '../../components/GoogleMapView';
+import MapCanvas, { MapFocus, MapFitBounds, CircleMarker, RouteLine } from '../../components/GoogleMapView';
+import useRoadPath from '../../services/useRoadPath';
+import { MODE_WARNING } from '../../services/roads';
 
 // base: '/owner' (route owners). The page is shared, so every link is built from it.
 export default function RouteDetail({ base = '/owner' }) {
@@ -18,6 +20,9 @@ export default function RouteDetail({ base = '/owner' }) {
   const mapCardRef = useRef(null);
 
   const locate = stop => { setLocateStop(stop); setLocateNonce(n => n + 1); };
+
+  // draws the already-saved road path (never asks Google for a new one just to view the route)
+  const road = useRoadPath({ routeId: id, stops: route?.stops || [], saved: route?.road_path, canSave: false, enabled: Boolean(route?.road_path) });
 
   // scroll the map card into view every time a stop is located (nonce changes even on
   // re-clicking the same stop), so it's visible even if the clicked stop is far below
@@ -103,6 +108,31 @@ export default function RouteDetail({ base = '/owner' }) {
           <div className="stat-card"><div className="stat-val" style={{ color:'var(--pl)', fontSize:22 }}>{mbox}</div><div className="stat-lbl">Mailboxes</div></div>
           <div className="stat-card"><div className="stat-val" style={{ color:'var(--apt)', fontSize:22 }}>{apt}</div><div className="stat-lbl">Apartments</div></div>
         </div>
+
+        {/* Route map */}
+        {stopCount > 0 && (
+          <div className="card" style={{ marginBottom:16, padding:0, overflow:'hidden' }}>
+            <div style={{ height:220 }}>
+              <MapCanvas center={[route.stops[0].lat, route.stops[0].lng]} zoom={14}>
+                <MapFitBounds positions={route.stops.map(s => [s.lat, s.lng])} />
+                {road.legs
+                  ? <RouteLine path={road.legs.flat()} color="#6D3FE0" weight={4} opacity={0.85} />
+                  : stopCount >= 2 && <RouteLine path={route.stops.map(s => [s.lat, s.lng])} color="#6D3FE0" weight={3} opacity={0.6} dashed />}
+                {route.stops.map((s, i) => (
+                  <CircleMarker key={s.id} position={[s.lat, s.lng]}
+                    color={s.delivered ? '#1C9A54' : s.type === 'apartment' ? '#B5720A' : '#6D3FE0'}
+                    label={s.delivered ? '✓' : i + 1} size={26} onClick={() => locate(s)} />
+                ))}
+              </MapCanvas>
+            </div>
+            {route.road_path && road.status === 'loading' && (
+              <div style={{ padding:'6px 14px', fontSize:10.5, color:'var(--mut)' }}>Loading the road route…</div>
+            )}
+            {road.legs && MODE_WARNING && (
+              <div style={{ padding:'6px 14px', fontSize:10, lineHeight:1.4, color:'var(--mut)' }}>{MODE_WARNING}</div>
+            )}
+          </div>
+        )}
 
         {/* Assign rider */}
         <div className="card" style={{ marginBottom:16 }}>
