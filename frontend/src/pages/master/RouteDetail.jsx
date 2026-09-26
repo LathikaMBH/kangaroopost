@@ -17,7 +17,9 @@ export default function RouteDetail({ base = '/owner' }) {
   const [stopError, setStopError] = useState('');
   const [locateStop, setLocateStop] = useState(null);
   const [locateNonce, setLocateNonce] = useState(0);
+  const [showMap, setShowMap] = useState(false);
   const mapCardRef = useRef(null);
+  const routeMapRef = useRef(null);
 
   const locate = stop => { setLocateStop(stop); setLocateNonce(n => n + 1); };
 
@@ -30,6 +32,10 @@ export default function RouteDetail({ base = '/owner' }) {
   useEffect(() => {
     if (locateStop && mapCardRef.current) mapCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [locateNonce]);
+
+  useEffect(() => {
+    if (showMap && routeMapRef.current) routeMapRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [showMap]);
 
   useEffect(() => {
     setError('');
@@ -103,15 +109,27 @@ export default function RouteDetail({ base = '/owner' }) {
 
       <div style={{ padding:'0 22px' }}>
         {/* Stats */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:20 }}>
           <div className="stat-card"><div className="stat-val" style={{ color:'var(--grn)', fontSize:22 }}>{done}</div><div className="stat-lbl">Delivered</div></div>
           <div className="stat-card"><div className="stat-val" style={{ color:'var(--pl)', fontSize:22 }}>{mbox}</div><div className="stat-lbl">Mailboxes</div></div>
           <div className="stat-card"><div className="stat-val" style={{ color:'var(--apt)', fontSize:22 }}>{apt}</div><div className="stat-lbl">Apartments</div></div>
+          <button className="stat-card" disabled={stopCount === 0} onClick={() => setShowMap(v => !v)}
+            style={{ cursor: stopCount === 0 ? 'default' : 'pointer', opacity: stopCount === 0 ? 0.5 : 1, fontFamily:'inherit',
+              borderColor: showMap ? 'var(--pr)' : 'var(--border)' }}>
+            <i className="ti ti-map-2" style={{ fontSize:22, color: showMap ? 'var(--pr)' : 'var(--pl)' }} />
+            <div className="stat-lbl">Map</div>
+          </button>
         </div>
 
         {/* Route map */}
-        {stopCount > 0 && (
-          <div className="card" style={{ marginBottom:16, padding:0, overflow:'hidden' }}>
+        {showMap && stopCount > 0 && (
+          <div ref={routeMapRef} className="card" style={{ marginBottom:16, padding:0, overflow:'hidden', scrollMarginTop:16 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ color:'var(--tx)', fontSize:13, fontWeight:600 }}>Route map</div>
+              <button className="btn btn-ghost btn-sm" style={{ flexShrink:0, padding:'4px 8px' }} onClick={() => setShowMap(false)}>
+                <i className="ti ti-x" style={{ fontSize:14 }} />
+              </button>
+            </div>
             <div style={{ height:220 }}>
               <MapCanvas center={[route.stops[0].lat, route.stops[0].lng]} zoom={14}>
                 <MapFitBounds positions={route.stops.map(s => [s.lat, s.lng])} />
