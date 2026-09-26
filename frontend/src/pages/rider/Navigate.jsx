@@ -107,6 +107,7 @@ export default function RiderNavigate(){
           <MapFollow pos={riderPos} follow={status===S.RUNNING}/>
           <RouteLine path={doneLine} color="#1C9A54" weight={5} opacity={0.85}/>
           <RouteLine path={remLine} color="#4285F4" weight={road.legs?4:3} opacity={road.legs?0.6:0.3} dashed={!road.legs}/>
+          {nextIdx===0&&riderPos&&stops[0]&&status===S.RUNNING&&<RouteLine path={[riderPos,[stops[0].lat,stops[0].lng]]} color="#4285F4" weight={3} opacity={0.5} dashed/>}
           {nextStop&&status===S.RUNNING&&!waitingApt&&nextStop.type==='mailbox'&&<RadiusCircle center={[nextStop.lat,nextStop.lng]} radius={PROXIMITY_METRES} color="#4285F4"/>}
           {stops.map((s,i)=>{const isDone=delivered.has(s.id);const isCurr=i===nextIdx&&status!==S.IDLE;const color=isDone?'#1C9A54':isCurr?(s.type==='apartment'?'#B5720A':'#4285F4'):'#888';return<CircleMarker key={s.id} position={[s.lat,s.lng]} color={color} label={isDone?'✓':i+1} size={isCurr?36:28} onClick={()=>setOpenId(s.id)}/>;})}
           {openStop&&<InfoWindow position={{lat:openStop.lat,lng:openStop.lng}} pixelOffset={[0,-18]} onCloseClick={()=>setOpenId(null)}><div style={{color:'#222',fontSize:13}}>{openStop.address}<br/><small>{openStop.type}</small></div></InfoWindow>}
