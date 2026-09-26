@@ -23,16 +23,18 @@ export default function RiderDashboard() {
   const visibleRoutes = statusFilter ? routes.filter(r => routeStatus(r) === statusFilter) : routes;
 
   return (
-    <div className="screen" style={{ padding:'0 22px 20px' }}>
-      <div style={{ paddingTop:56, display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+    <div className="screen">
+      <div className="page-header">
         <div>
-          <p style={{ fontSize:12, color:'var(--mut)', margin:0 }}>Rider dashboard</p>
-          <h2 style={{ fontSize:20 }}>{user?.name}</h2>
+          <p style={{ fontSize:12, color:'rgba(255,255,255,0.75)', margin:0 }}>Rider dashboard</p>
+          <h2 style={{ fontSize:20, color:'#fff' }}>{user?.name}</h2>
         </div>
-        <div style={{ width:44, height:44, borderRadius:22, background:'var(--pr)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700, fontSize:18 }}>
+        <div style={{ width:44, height:44, borderRadius:22, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--pr)', fontWeight:700, fontSize:18 }}>
           {user?.name?.[0]}
         </div>
       </div>
+
+      <div style={{ padding:'0 22px 20px' }}>
 
       <div className="section-label">Route status</div>
       <RouteStatusTiles routes={routes} value={statusFilter} onChange={setStatusFilter} />
@@ -87,7 +89,7 @@ export default function RiderDashboard() {
             )}
 
             {r.status === 'completed' && (
-              <div style={{ background:'#082E20', borderRadius:12, padding:'12px 16px', color:'var(--grn)', fontWeight:600, textAlign:'center', marginBottom:10 }}>
+              <div style={{ background:'var(--grn-tint)', borderRadius:12, padding:'12px 16px', color:'var(--grn)', fontWeight:600, textAlign:'center', marginBottom:10 }}>
                 <i className="ti ti-circle-check" /> Route Complete!
               </div>
             )}
@@ -121,6 +123,7 @@ export default function RiderDashboard() {
             </div>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

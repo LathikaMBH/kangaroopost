@@ -72,7 +72,7 @@ export default function OwnerRiders() {
       <div className="page-header">
         <button className="back-btn" onClick={() => navigate('/owner')}><i className="ti ti-arrow-left" /></button>
         <h3>Riders ({riders.length}/5)</h3>
-        <button className="btn btn-sm" style={{ background: atLimit ? 'var(--el)' : 'var(--pr)', color: atLimit ? 'var(--mut)' : '#fff', padding:'8px 12px' }}
+        <button className="btn btn-sm" style={{ background: atLimit ? 'var(--el)' : '#fff', color: atLimit ? 'var(--mut)' : 'var(--pr)', padding:'8px 12px' }}
           onClick={() => { if (atLimit) return; setCreated(null); setShowForm(!showForm); }} disabled={atLimit}>
           <i className={`ti ti-${showForm?'x':'plus'}`} />
         </button>
@@ -91,12 +91,12 @@ export default function OwnerRiders() {
         </div>
 
         {atLimit && (
-          <div style={{ background:'#2A0808', border:'1px solid #541212', borderRadius:12, padding:'10px 14px', color:'#F87171', fontSize:13, marginBottom:16 }}>
+          <div style={{ background:'var(--red-tint)', border:'1px solid #C2343855', borderRadius:12, padding:'10px 14px', color:'var(--red)', fontSize:13, marginBottom:16 }}>
             <i className="ti ti-alert-triangle" /> Maximum 5 riders reached. Delete a rider to add a new one.
           </div>
         )}
 
-        {saved && <div style={{ background:'#082E20', border:'1px solid var(--grn)66', color:'var(--grn)', borderRadius:12, padding:'10px 14px', fontSize:13, marginBottom:14 }}><i className="ti ti-circle-check" /> {saved}</div>}
+        {saved && <div style={{ background:'var(--grn-tint)', border:'1px solid var(--grn)66', color:'var(--grn)', borderRadius:12, padding:'10px 14px', fontSize:13, marginBottom:14 }}><i className="ti ti-circle-check" /> {saved}</div>}
         {created && <CredentialsNotice title="Rider created" email={created.email} password={created.password} onDismiss={() => setCreated(null)} />}
 
         {/* Create form */}

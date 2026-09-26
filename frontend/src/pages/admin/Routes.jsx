@@ -3,9 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 
 const StatusBadge = ({ status }) => {
-  const m = { not_started:['Not started','var(--mut)'], ongoing:['Ongoing','var(--amb)'], paused:['Paused','#F59E0B'], completed:['Completed','var(--grn)'] };
-  const [l, c] = m[status] || m.not_started;
-  return <span style={{ fontSize:11, fontWeight:600, color:c, background:`${c}18`, padding:'3px 10px', borderRadius:20, border:`1px solid ${c}44` }}>{l}</span>;
+  const m = {
+    not_started: ['Not started', 'var(--mut)', 'var(--el)', 'var(--border)'],
+    ongoing:     ['Ongoing', 'var(--amb)', 'var(--amber-tint)', 'rgba(181,114,10,0.3)'],
+    paused:      ['Paused', 'var(--apt)', 'var(--amber-tint)', 'rgba(181,114,10,0.3)'],
+    completed:   ['Completed', 'var(--grn)', 'var(--grn-tint)', 'rgba(28,154,84,0.3)'],
+  };
+  const [l, c, bg, bd] = m[status] || m.not_started;
+  return <span style={{ fontSize:11, fontWeight:600, color:c, background:bg, padding:'3px 10px', borderRadius:20, border:`1px solid ${bd}` }}>{l}</span>;
 };
 
 export default function AdminRoutes() {

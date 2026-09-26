@@ -92,31 +92,31 @@ export default function RiderNavigate(){
           <div style={{fontSize:13,fontWeight:700}}>
             {status===S.IDLE&&'Ready to start'}
             {status===S.RUNNING&&`Stop ${Math.min(nextIdx+1,totalStops)} / ${totalStops}`}
-            {status===S.PAUSED&&<span style={{color:'#F59E0B'}}>⏸ Paused</span>}
+            {status===S.PAUSED&&<span style={{color:'var(--apt)'}}>⏸ Paused</span>}
           </div>
         </div>
-        <div style={{background:'#082E20',borderRadius:12,padding:'6px 10px',color:isPaused?'#F59E0B':'var(--grn)',fontSize:12,fontWeight:700}}>{pct}%</div>
+        <div style={{background:'var(--grn-tint)',borderRadius:12,padding:'6px 10px',color:isPaused?'var(--apt)':'var(--grn)',fontSize:12,fontWeight:700}}>{pct}%</div>
       </div>
 
       <div style={{margin:'0 22px 8px',height:4,background:'var(--el)',borderRadius:2,flexShrink:0}}>
-        <div style={{height:'100%',width:`${pct}%`,background:isPaused?'#F59E0B':'var(--grn)',borderRadius:2,transition:'width 0.5s'}}/>
+        <div style={{height:'100%',width:`${pct}%`,background:isPaused?'var(--apt)':'var(--grn)',borderRadius:2,transition:'width 0.5s'}}/>
       </div>
 
-      <div style={{flex:'0 0 42%',margin:'0 22px',borderRadius:16,overflow:'hidden',border:`2px solid ${isPaused?'#F59E0B88':'#C8C4BC'}`,flexShrink:0,position:'relative'}}>
+      <div style={{flex:'0 0 42%',margin:'0 22px',borderRadius:16,overflow:'hidden',border:`2px solid ${isPaused?'#B5720A88':'#C8C4BC'}`,flexShrink:0,position:'relative'}}>
         <MapCanvas center={riderPos||[stops[0]?.lat||61.1282,stops[0]?.lng||21.5117]} zoom={16}>
           <MapFollow pos={riderPos} follow={status===S.RUNNING}/>
-          <RouteLine path={doneLine} color="#22A05B" weight={5} opacity={0.85}/>
+          <RouteLine path={doneLine} color="#1C9A54" weight={5} opacity={0.85}/>
           <RouteLine path={remLine} color="#4285F4" weight={road.legs?4:3} opacity={road.legs?0.6:0.3} dashed={!road.legs}/>
           {nextStop&&status===S.RUNNING&&!waitingApt&&nextStop.type==='mailbox'&&<RadiusCircle center={[nextStop.lat,nextStop.lng]} radius={PROXIMITY_METRES} color="#4285F4"/>}
-          {stops.map((s,i)=>{const isDone=delivered.has(s.id);const isCurr=i===nextIdx&&status!==S.IDLE;const color=isDone?'#22A05B':isCurr?(s.type==='apartment'?'#F59E0B':'#4285F4'):'#888';return<CircleMarker key={s.id} position={[s.lat,s.lng]} color={color} label={isDone?'✓':i+1} size={isCurr?36:28} onClick={()=>setOpenId(s.id)}/>;})}
+          {stops.map((s,i)=>{const isDone=delivered.has(s.id);const isCurr=i===nextIdx&&status!==S.IDLE;const color=isDone?'#1C9A54':isCurr?(s.type==='apartment'?'#B5720A':'#4285F4'):'#888';return<CircleMarker key={s.id} position={[s.lat,s.lng]} color={color} label={isDone?'✓':i+1} size={isCurr?36:28} onClick={()=>setOpenId(s.id)}/>;})}
           {openStop&&<InfoWindow position={{lat:openStop.lat,lng:openStop.lng}} pixelOffset={[0,-18]} onCloseClick={()=>setOpenId(null)}><div style={{color:'#222',fontSize:13}}>{openStop.address}<br/><small>{openStop.type}</small></div></InfoWindow>}
           {riderPos&&<DotMarker position={riderPos} size={24}/>}
         </MapCanvas>
-        {isPaused&&<div style={{position:'absolute',inset:0,background:'rgba(14,9,48,0.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:1000}}><i className="ti ti-player-pause" style={{fontSize:48,color:'#F59E0B',marginBottom:8}}/><div style={{color:'#F59E0B',fontWeight:700,fontSize:16}}>GPS Paused</div><div style={{color:'#B8A4F8',fontSize:12,marginTop:4}}>Map tracking stopped</div></div>}
+        {isPaused&&<div style={{position:'absolute',inset:0,background:'rgba(255,255,255,0.85)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:1000}}><i className="ti ti-player-pause" style={{fontSize:48,color:'var(--apt)',marginBottom:8}}/><div style={{color:'var(--apt)',fontWeight:700,fontSize:16}}>GPS Paused</div><div style={{color:'var(--mut)',fontSize:12,marginTop:4}}>Map tracking stopped</div></div>}
       </div>
 
       {status!==S.IDLE&&<div style={{display:'flex',gap:8,padding:'8px 22px 0',flexShrink:0}}>
-        {[['#22A05B','Done',doneCount],['var(--pl)','Left',totalStops-doneCount],['#4285F4','Auto',Array.from(delivered).filter(id=>stops.find(s=>s.id===id)?.type==='mailbox').length],['var(--apt)','Apt',Array.from(delivered).filter(id=>stops.find(s=>s.id===id)?.type==='apartment').length]].map(([c,l,v])=>(
+        {[['#1C9A54','Done',doneCount],['var(--pl)','Left',totalStops-doneCount],['#4285F4','Auto',Array.from(delivered).filter(id=>stops.find(s=>s.id===id)?.type==='mailbox').length],['var(--apt)','Apt',Array.from(delivered).filter(id=>stops.find(s=>s.id===id)?.type==='apartment').length]].map(([c,l,v])=>(
           <div key={l} style={{flex:1,background:'var(--card)',borderRadius:12,padding:'8px 6px',border:'1px solid var(--border)',textAlign:'center'}}>
             <div style={{fontSize:16,fontWeight:700,color:c}}>{v}</div><div style={{fontSize:10,color:'var(--mut)'}}>{l}</div>
           </div>
@@ -129,7 +129,7 @@ export default function RiderNavigate(){
         {status===S.RUNNING&&!waitingApt&&nextStop&&<>
           <div style={{background:'var(--card)',borderRadius:18,padding:'12px 14px',border:'1.5px solid #4285F444',marginBottom:10}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <div style={{width:36,height:36,borderRadius:12,background:nextStop.type==='apartment'?'var(--apt)22':'#4285F422',border:`1.5px solid ${nextStop.type==='apartment'?'var(--apt)44':'#4285F444'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <div style={{width:36,height:36,borderRadius:12,background:nextStop.type==='apartment'?'#B5720A22':'#4285F422',border:`1.5px solid ${nextStop.type==='apartment'?'#B5720A44':'#4285F444'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <i className={`ti ti-${nextStop.type==='apartment'?'building':'navigation'}`} style={{fontSize:18,color:nextStop.type==='apartment'?'var(--apt)':'#4285F4'}}/>
               </div>
               <div style={{flex:1,minWidth:0}}>
@@ -139,14 +139,14 @@ export default function RiderNavigate(){
               <span className={`badge badge-${nextStop.type}`}><i className={`ti ti-${nextStop.type==='mailbox'?'mailbox':'building'}`} style={{fontSize:10}}/></span>
             </div>
           </div>
-          <button className="btn" style={{width:'100%',background:'#2D1A00',border:'1.5px solid #F59E0B55',color:'#F59E0B',fontSize:14,fontWeight:600}} onClick={handlePause}>
+          <button className="btn" style={{width:'100%',background:'var(--amber-tint)',border:'1.5px solid #B5720A55',color:'var(--apt)',fontSize:14,fontWeight:600}} onClick={handlePause}>
             <i className="ti ti-player-pause" style={{fontSize:18}}/> Pause Route
           </button>
         </>}
 
         {status===S.RUNNING&&waitingApt&&nextStop&&<div style={{background:'var(--card)',borderRadius:20,padding:16,border:'2px solid var(--apt)'}}>
           <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-            <div style={{width:44,height:44,borderRadius:14,background:'var(--apt)22',border:'1.5px solid var(--apt)55',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <div style={{width:44,height:44,borderRadius:14,background:'#B5720A22',border:'1.5px solid #B5720A55',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
               <i className="ti ti-building" style={{fontSize:24,color:'var(--apt)'}}/>
             </div>
             <div><div style={{color:'var(--apt)',fontSize:12,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>Apartment — deliver inside</div><div style={{fontSize:15,fontWeight:700}}>{nextStop.address}</div></div>
@@ -155,9 +155,9 @@ export default function RiderNavigate(){
         </div>}
 
         {status===S.PAUSED&&<div>
-          <div style={{background:'#2D1A00',borderRadius:16,padding:'12px 16px',marginBottom:10,border:'1px solid #F59E0B44',display:'flex',alignItems:'center',gap:12}}>
-            <i className="ti ti-player-pause" style={{fontSize:24,color:'#F59E0B',flexShrink:0}}/>
-            <div><div style={{color:'#F59E0B',fontWeight:600,fontSize:14}}>Route paused</div><div style={{color:'var(--mut)',fontSize:12}}>GPS stopped · {doneCount}/{totalStops} delivered</div></div>
+          <div style={{background:'var(--amber-tint)',borderRadius:16,padding:'12px 16px',marginBottom:10,border:'1px solid #B5720A44',display:'flex',alignItems:'center',gap:12}}>
+            <i className="ti ti-player-pause" style={{fontSize:24,color:'var(--apt)',flexShrink:0}}/>
+            <div><div style={{color:'var(--apt)',fontWeight:600,fontSize:14}}>Route paused</div><div style={{color:'var(--mut)',fontSize:12}}>GPS stopped · {doneCount}/{totalStops} delivered</div></div>
           </div>
           <button className="btn btn-green" onClick={handleRestart}><i className="ti ti-player-play" style={{fontSize:20}}/> Restart Tracking</button>
         </div>}

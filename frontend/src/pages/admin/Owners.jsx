@@ -119,14 +119,14 @@ export default function AdminOwners() {
       <div className="page-header">
         <button className="back-btn" onClick={() => navigate('/admin')}><i className="ti ti-arrow-left" /></button>
         <h3>Route Owners</h3>
-        <button className="btn btn-sm" style={{ background:'var(--pr)', color:'#fff', padding:'8px 12px' }}
+        <button className="btn btn-sm" style={{ background:'#fff', color:'var(--pr)', padding:'8px 12px' }}
           onClick={() => { setCreated(null); setShowForm(!showForm); }}>
           <i className={`ti ti-${showForm?'x':'plus'}`} />
         </button>
       </div>
 
       <div style={{ padding:'0 22px' }}>
-        {saved && <div style={{ background:'#082E20', border:'1px solid var(--grn)66', color:'var(--grn)', borderRadius:12, padding:'10px 14px', fontSize:13, marginBottom:14 }}><i className="ti ti-circle-check" /> {saved}</div>}
+        {saved && <div style={{ background:'var(--grn-tint)', border:'1px solid var(--grn)66', color:'var(--grn)', borderRadius:12, padding:'10px 14px', fontSize:13, marginBottom:14 }}><i className="ti ti-circle-check" /> {saved}</div>}
         {created && <CredentialsNotice title="Route owner created" email={created.email} password={created.password} onDismiss={() => setCreated(null)} />}
         {showForm && <OwnerForm onSave={createOwner} onCancel={() => setShowForm(false)} />}
 

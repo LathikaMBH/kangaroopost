@@ -26,7 +26,7 @@ export const PinIcon = ({ size = 16 }) => (
 export const ACTION_BTN = { flex:'1 1 auto', minWidth:0, padding:'6px 8px', fontSize:12, gap:4, borderRadius:10 };
 
 // delete: fixed square button at the right edge of the card, brighter red so the icon stands out
-export const DELETE_BTN = { flex:'0 0 auto', width:34, height:32, padding:0, borderRadius:10, color:'#F87171' };
+export const DELETE_BTN = { flex:'0 0 auto', width:34, height:32, padding:0, borderRadius:10, color:'var(--red)' };
 
 // locate: fixed square button next to delete, neutral colour so it doesn't compete with it
 export const LOCATE_BTN = { flex:'0 0 auto', width:34, height:32, padding:0, borderRadius:10, color:'var(--pl)' };

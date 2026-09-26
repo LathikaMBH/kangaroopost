@@ -7,9 +7,14 @@ import RouteStatusTiles, { routeStatus } from '../../components/RouteStatusTiles
 import RouteTable, { ViewToggle } from '../../components/RouteTable';
 
 const StatusBadge = ({ status }) => {
-  const m = { not_started:['Not started','var(--mut)','var(--el)'], ongoing:['Ongoing','var(--amb)','#2A1A00'], paused:['Paused','#F59E0B','#2D1A00'], completed:['Completed','var(--grn)','#082E20'] };
-  const [l, c, bg] = m[status] || m.not_started;
-  return <span style={{ fontSize:11, fontWeight:600, color:c, background:bg, padding:'3px 10px', borderRadius:20, border:`1px solid ${c}44` }}>{l}</span>;
+  const m = {
+    not_started: ['Not started', 'var(--mut)', 'var(--el)', 'var(--border)'],
+    ongoing:     ['Ongoing', 'var(--amb)', 'var(--amber-tint)', 'rgba(181,114,10,0.3)'],
+    paused:      ['Paused', 'var(--apt)', 'var(--amber-tint)', 'rgba(181,114,10,0.3)'],
+    completed:   ['Completed', 'var(--grn)', 'var(--grn-tint)', 'rgba(28,154,84,0.3)'],
+  };
+  const [l, c, bg, bd] = m[status] || m.not_started;
+  return <span style={{ fontSize:11, fontWeight:600, color:c, background:bg, padding:'3px 10px', borderRadius:20, border:`1px solid ${bd}` }}>{l}</span>;
 };
 
 export default function OwnerDashboard() {
@@ -41,17 +46,19 @@ export default function OwnerDashboard() {
   const visibleRoutes = statusFilter ? routes.filter(r => routeStatus(r) === statusFilter) : routes;
 
   return (
-    <div className="screen" style={{ padding:'0 22px 20px' }}>
-      <div style={{ paddingTop:52, display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+    <div className="screen">
+      <div className="page-header">
         <div>
-          <p style={{ fontSize:11, color:'var(--mut)', margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>Route Owner</p>
-          <h2 style={{ fontSize:20 }}>{user?.name}</h2>
-          {user?.city && <p style={{ fontSize:12, color:'var(--mut)', margin:0 }}><i className="ti ti-map-pin" style={{ fontSize:11 }} /> {user.city}</p>}
+          <p style={{ fontSize:11, color:'rgba(255,255,255,0.75)', margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>Route Owner</p>
+          <h2 style={{ fontSize:20, color:'#fff' }}>{user?.name}</h2>
+          {user?.city && <p style={{ fontSize:12, color:'rgba(255,255,255,0.75)', margin:0 }}><i className="ti ti-map-pin" style={{ fontSize:11 }} /> {user.city}</p>}
         </div>
         <button onClick={() => { logout(); navigate('/login'); }} className="btn btn-ghost btn-sm">
           <i className="ti ti-logout" style={{ fontSize:16 }} />
         </button>
       </div>
+
+      <div style={{ padding:'0 22px 20px' }}>
 
       {/* Route status */}
       <div className="section-label">Route status</div>
@@ -112,6 +119,7 @@ export default function OwnerDashboard() {
           {statusFilter ? 'No routes with this status' : 'No routes yet'}
         </div>
       )}
+      </div>
     </div>
   );
 }

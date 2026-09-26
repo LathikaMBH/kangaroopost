@@ -40,7 +40,7 @@ export default function MasterRoutes({ base = '/owner' }) {
       <div className="page-header">
         <button className="back-btn" onClick={() => navigate(base)}><i className="ti ti-arrow-left" /></button>
         <h3>Routes</h3>
-        <button className="btn btn-sm" style={{ background:'var(--pr)', color:'#fff', padding:'8px 12px' }}
+        <button className="btn btn-sm" style={{ background:'#fff', color:'var(--pr)', padding:'8px 12px' }}
           onClick={() => navigate(`${base}/routes/new`)}>
           <i className="ti ti-plus" />
         </button>
