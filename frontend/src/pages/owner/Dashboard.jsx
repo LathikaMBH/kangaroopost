@@ -78,6 +78,11 @@ export default function OwnerDashboard() {
           <div style={{ color:'var(--tx)', fontSize:13, fontWeight:600 }}>Riders</div>
           <div style={{ color:'var(--mut)', fontSize:11 }}>{riders.length}/5 accounts</div>
         </button>
+        <button onClick={() => navigate('/owner/complaints')} style={{ background:'var(--card)', border:'1px solid var(--border)', borderRadius:18, padding:'16px 14px', textAlign:'left', cursor:'pointer' }}>
+          <i className="ti ti-alert-triangle" style={{ fontSize:26, color:'var(--pl)', display:'block', marginBottom:8 }} />
+          <div style={{ color:'var(--tx)', fontSize:13, fontWeight:600 }}>Complaints</div>
+          <div style={{ color:'var(--mut)', fontSize:11 }}>Report a missed delivery</div>
+        </button>
       </div>
 
       {/* Live routes */}

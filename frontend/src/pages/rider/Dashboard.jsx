@@ -1,24 +1,51 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import api from '../../services/api';
 import RouteStatusTiles, { STATUSES, routeStatus } from '../../components/RouteStatusTiles';
 import RouteTable, { ViewToggle } from '../../components/RouteTable';
+import ComplaintCard from '../../components/ComplaintCard';
 
 export default function RiderDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const socket = useSocket();
   const [routes, setRoutes] = useState([]);
+  const [complaints, setComplaints] = useState([]);
+  const [busyId, setBusyId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
   const [view, setView] = useState('cards');
 
   useEffect(() => {
-    const load = () => api.getRoutes().then(setRoutes).catch(() => {}).finally(() => setLoading(false));
+    const load = () => {
+      api.getComplaints().then(setComplaints).catch(() => {});
+      return api.getRoutes().then(setRoutes).catch(() => {}).finally(() => setLoading(false));
+    };
     load();
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
   }, []);
+
+  // a new complaint from the route owner shows up straight away (the 10 s refresh would also catch it)
+  const loadComplaints = () => api.getComplaints().then(setComplaints).catch(() => {});
+  useEffect(() => {
+    if (!socket) return;
+    const events = ['complaint:created', 'complaint:deleted', 'complaint:resolved']; // resolved: the owner may close it
+    events.forEach(e => socket.on(e, loadComplaints));
+    return () => events.forEach(e => socket.off(e, loadComplaints));
+  }, [socket]);
+
+  // Accept, then Mark as done
+  const advance = call => async c => {
+    setBusyId(c.id);
+    try { await call(c.id); } catch (err) { alert(err.error || 'Could not update the complaint'); }
+    finally { setBusyId(null); loadComplaints(); }
+  };
+
+  // resolved ones are finished: only the route owner still sees them
+  const openComplaints = complaints.filter(c => c.status !== 'resolved');
 
   const visibleRoutes = statusFilter ? routes.filter(r => routeStatus(r) === statusFilter) : routes;
 
@@ -35,6 +62,15 @@ export default function RiderDashboard() {
       </div>
 
       <div style={{ padding:'0 22px 20px' }}>
+
+      {openComplaints.length > 0 && <>
+        <div className="section-label" style={{ color:'var(--red)' }}>
+          <i className="ti ti-alert-triangle" /> Missed deliveries ({openComplaints.length})
+        </div>
+        {openComplaints.map(c => <ComplaintCard key={c.id} complaint={c} busy={busyId === c.id}
+          onAccept={advance(api.acceptComplaint)} onResolve={advance(api.resolveComplaint)} />)}
+        <div style={{ marginBottom:10 }} />
+      </>}
 
       <div className="section-label">Route status</div>
       <RouteStatusTiles routes={routes} value={statusFilter} onChange={setStatusFilter} />

@@ -66,6 +66,24 @@ CREATE INDEX IF NOT EXISTS idx_stops_route  ON stops(route_id);
 
 -- the road-following line for a route (one encoded polyline per leg between two stops), computed by the browser
 ALTER TABLE routes ADD COLUMN IF NOT EXISTS road_path JSONB;
+
+-- missed-delivery complaints a route owner sends to one of their riders
+CREATE TABLE IF NOT EXISTS complaints (
+  id          SERIAL PRIMARY KEY,
+  owner_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rider_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  address     TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'open',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  accepted_at TIMESTAMPTZ,
+  resolved_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_complaints_owner ON complaints(owner_id);
+CREATE INDEX IF NOT EXISTS idx_complaints_rider ON complaints(rider_id);
+-- open -> accepted (rider took it on) -> resolved (rider marked it done)
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
+ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;
+ALTER TABLE complaints ADD CONSTRAINT complaints_status_check CHECK (status IN ('open','accepted','resolved'));
 `;
 
 async function init() {
@@ -93,6 +111,12 @@ const ROUTE_SELECT = `
   FROM routes r
   LEFT JOIN users rd ON rd.id = r.rider_id
   LEFT JOIN users ow ON ow.id = r.owner_id`;
+
+const COMPLAINT_SELECT = `
+  SELECT c.*, rd.name AS rider_name, ow.name AS owner_name
+  FROM complaints c
+  LEFT JOIN users rd ON rd.id = c.rider_id
+  LEFT JOIN users ow ON ow.id = c.owner_id`;
 
 const queries = {
   // ── Users ────────────────────────────────────────────────────────────────
@@ -228,6 +252,30 @@ const queries = {
     'UPDATE stops SET delivered = false, delivered_at = NULL, delivered_method = NULL WHERE route_id = $1',
     [Number(route_id)]
   ),
+
+  // ── Complaints ───────────────────────────────────────────────────────────
+  getAllComplaints:       ()         => many(`${COMPLAINT_SELECT} ORDER BY c.id DESC`),
+  getComplaintsByOwner:   (owner_id) => many(`${COMPLAINT_SELECT} WHERE c.owner_id = $1 ORDER BY c.id DESC`, [Number(owner_id)]),
+  getComplaintsForRider:  (rider_id) => many(`${COMPLAINT_SELECT} WHERE c.rider_id = $1 ORDER BY c.id DESC`, [Number(rider_id)]),
+  getComplaintById:       (id)       => one(`${COMPLAINT_SELECT} WHERE c.id = $1`, [Number(id)]),
+
+  createComplaint: async (owner_id, rider_id, address) => {
+    const { id } = await one('INSERT INTO complaints (owner_id, rider_id, address) VALUES ($1,$2,$3) RETURNING id',
+      [Number(owner_id), Number(rider_id), address]);
+    return queries.getComplaintById(id);
+  },
+
+  acceptComplaint: async (id) => {
+    await q("UPDATE complaints SET status = 'accepted', accepted_at = now() WHERE id = $1", [Number(id)]);
+    return queries.getComplaintById(id);
+  },
+
+  resolveComplaint: async (id) => {
+    await q("UPDATE complaints SET status = 'resolved', resolved_at = now() WHERE id = $1", [Number(id)]);
+    return queries.getComplaintById(id);
+  },
+
+  deleteComplaint: (id) => q('DELETE FROM complaints WHERE id = $1', [Number(id)]),
 
   // ── Location ─────────────────────────────────────────────────────────────
   insertPing: (route_id, rider_id, lat, lng) =>

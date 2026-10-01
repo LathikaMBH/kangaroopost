@@ -30,6 +30,7 @@ app.use('/api/routes',   require('./routes/routes'));
 app.use('/api/stops',    require('./routes/stops'));
 app.use('/api/users',    require('./routes/users'));
 app.use('/api/delivery', require('./routes/delivery'));
+app.use('/api/complaints', require('./routes/complaints'));
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
@@ -48,6 +49,7 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
+  socket.join(`user_${socket.user.id}`); // personal room, for events meant for one user (e.g. complaints)
 
   // Join a room for a specific route (master + rider both join)
   // Admin: any route. Route owner: their own routes. Rider: the route assigned to them.
