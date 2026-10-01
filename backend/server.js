@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const jwt = require('jsonwebtoken');
 const { CORS_ORIGINS, JWT_SECRET } = require('./config');
 const { init, queries } = require('./database');
+const { canView } = require('./middleware/access');
 
 const app = express();
 const server = http.createServer(app);
@@ -56,11 +57,7 @@ io.on('connection', (socket) => {
   socket.on('join:route', async (routeId) => {
     try {
       const route = await queries.getRouteById(routeId);
-      const u = socket.user;
-      const allowed = route && (u.role === 'admin'
-        || (u.role === 'route_owner' && route.owner_id === u.id)
-        || (u.role === 'rider' && route.rider_id === u.id));
-      if (!allowed) return;
+      if (!route || !canView(socket.user, route)) return;
       socket.join(`route_${routeId}`);
       console.log(`   → joined room route_${routeId}`);
     } catch (e) { console.error('join:route failed', e.message); }

@@ -5,8 +5,32 @@ import PasswordField, { CredentialsNotice, ResetPassword } from '../../component
 import PhoneInput, { toE164 } from '../../components/PhoneInput';
 import { TrashIcon, ACTION_BTN, DELETE_BTN } from '../../components/RowActions';
 
+// Route owner is always on; Rider is optional (lets them sign in as a rider over all their own routes)
+function RolePicker({ canRide, onChange }) {
+  const box = { display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer' };
+  return (
+    <div>
+      <div className="label" style={{ marginBottom:6 }}>Roles</div>
+      <div style={{ display:'flex', gap:18, flexWrap:'wrap' }}>
+        <label style={{ ...box, cursor:'default', color:'var(--mut)' }}><input type="checkbox" checked disabled /> Route owner</label>
+        <label style={box}><input type="checkbox" checked={canRide} onChange={e => onChange(e.target.checked)} /> Rider</label>
+      </div>
+    </div>
+  );
+}
+
+function RoleBadges({ owner }) {
+  const b = { fontSize:10, padding:'2px 8px' };
+  return (
+    <div style={{ display:'flex', gap:6, marginTop:4, flexWrap:'wrap' }}>
+      <span className="badge badge-not_started" style={b}>Route owner</span>
+      {owner.can_ride && <span className="badge badge-mailbox" style={b}><i className="ti ti-bike" style={{ fontSize:10 }} /> Rider</span>}
+    </div>
+  );
+}
+
 function OwnerForm({ onSave, onCancel }) {
-  const [form, setForm] = useState({ name:'', email:'', password:'', city:'', phone:'' });
+  const [form, setForm] = useState({ name:'', email:'', password:'', city:'', phone:'', can_ride:false });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -31,6 +55,7 @@ function OwnerForm({ onSave, onCancel }) {
         <PhoneInput value={form.phone} onChange={v => setForm(p => ({ ...p, phone: v }))} />
         <input className="input" type="email" placeholder="Email address *" value={form.email} onChange={f('email')} required />
         <PasswordField value={form.password} onChange={v => setForm(p => ({ ...p, password: v }))} />
+        <RolePicker canRide={form.can_ride} onChange={v => setForm(p => ({ ...p, can_ride: v }))} />
         {error && <div style={{ color:'var(--red)', fontSize:13 }}>{error}</div>}
         <div style={{ display:'flex', gap:10 }}>
           <button className="btn btn-primary" type="submit" style={{ flex:2 }} disabled={saving}>
@@ -44,7 +69,7 @@ function OwnerForm({ onSave, onCancel }) {
 }
 
 function OwnerEditForm({ owner, onSaved, onCancel }) {
-  const [form, setForm] = useState({ name: owner.name || '', email: owner.email || '', phone: toE164(owner.phone || ''), city: owner.city || '' });
+  const [form, setForm] = useState({ name: owner.name || '', email: owner.email || '', phone: toE164(owner.phone || ''), city: owner.city || '', can_ride: !!owner.can_ride });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -65,6 +90,7 @@ function OwnerEditForm({ owner, onSaved, onCancel }) {
         <div style={{ fontSize:11, color:'var(--amb)' }}>The saved number ({owner.phone}) had no country code. +358 (Finland) was assumed. Please check it.</div>
       )}
       <input className="input" placeholder="City" value={form.city} onChange={f('city')} />
+      <RolePicker canRide={form.can_ride} onChange={v => setForm(p => ({ ...p, can_ride: v }))} />
       <div style={{ fontSize:11, color:'var(--mut)' }}>The email is their sign-in name. After changing it they sign in with the new one; their password stays the same.</div>
       {error && <div style={{ color:'var(--red)', fontSize:13 }}>{error}</div>}
       <div style={{ display:'flex', gap:10 }}>
@@ -146,6 +172,7 @@ export default function AdminOwners() {
                   {o.city && <><i className="ti ti-map-pin" style={{ fontSize:11 }} /> {o.city} · </>}
                   {o.phone && <><i className="ti ti-phone" style={{ fontSize:11 }} /> {o.phone}</>}
                 </div>
+                <RoleBadges owner={o} />
               </div>
               <div style={{ textAlign:'right', flexShrink:0 }}>
                 <div style={{ color:'var(--pl)', fontWeight:700, fontSize:14 }}>{o.route_count} routes</div>
