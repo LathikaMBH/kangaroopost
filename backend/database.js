@@ -67,6 +67,9 @@ CREATE INDEX IF NOT EXISTS idx_stops_route  ON stops(route_id);
 -- the road-following line for a route (one encoded polyline per leg between two stops), computed by the browser
 ALTER TABLE routes ADD COLUMN IF NOT EXISTS road_path JSONB;
 
+-- a route owner who may also sign in as a rider (admin gives them the Rider role as well)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_ride BOOLEAN NOT NULL DEFAULT false;
+
 -- missed-delivery complaints a route owner sends to one of their riders
 CREATE TABLE IF NOT EXISTS complaints (
   id          SERIAL PRIMARY KEY,
@@ -101,7 +104,7 @@ async function init() {
 }
 
 // users without password_hash
-const SAFE_USER = 'id, name, email, role, city, phone, owner_id, created_at';
+const SAFE_USER = 'id, name, email, role, city, phone, owner_id, can_ride, created_at';
 
 const ROUTE_SELECT = `
   SELECT r.id, r.name, r.owner_id, r.rider_id, r.status, r.started_at, r.paused_at, r.completed_at, r.created_at,
@@ -142,9 +145,9 @@ const queries = {
   createUser: async (name, email, password_hash, role, extra = {}) => {
     try {
       return await one(
-        `INSERT INTO users (name, email, password_hash, role, city, phone, owner_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [name, email, password_hash, role, extra.city || '', extra.phone || '', extra.owner_id ?? null]
+        `INSERT INTO users (name, email, password_hash, role, city, phone, owner_id, can_ride)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [name, email, password_hash, role, extra.city || '', extra.phone || '', extra.owner_id ?? null, !!extra.can_ride]
       );
     } catch (e) {
       if (e.code === '23505') throw new Error('EMAIL_EXISTS');
@@ -155,9 +158,9 @@ const queries = {
   // only the fields that are provided get changed
   updateUser: (id, data) => one(
     `UPDATE users SET name = COALESCE($2, name), city = COALESCE($3, city),
-                      phone = COALESCE($4, phone), email = COALESCE($5, email)
+                      phone = COALESCE($4, phone), email = COALESCE($5, email), can_ride = COALESCE($6, can_ride)
      WHERE id = $1 RETURNING ${SAFE_USER}`,
-    [Number(id), data.name ?? null, data.city ?? null, data.phone ?? null, data.email ?? null]
+    [Number(id), data.name ?? null, data.city ?? null, data.phone ?? null, data.email ?? null, data.can_ride ?? null]
   ),
 
   // routes.rider_id is ON DELETE SET NULL, so their routes become unassigned

@@ -8,6 +8,7 @@ const { canView, canManage, loadRoute, checkRiderForRoute } = require('../middle
 router.get('/', auth, wrap(async (req, res) => {
   if (req.user.role === 'admin')        return res.json(await queries.getAllRoutes());
   if (req.user.role === 'route_owner')  return res.json(await queries.getRoutesByOwner(req.user.id));
+  if (req.user.acting_owner === true)   return res.json(await queries.getRoutesByOwner(req.user.id)); // route owner riding
   res.json(await queries.getRoutesForRider(req.user.id));
 }));
 

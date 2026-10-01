@@ -53,7 +53,7 @@ export default function RiderDashboard() {
     <div className="screen">
       <div className="page-header">
         <div>
-          <p style={{ fontSize:12, color:'rgba(255,255,255,0.75)', margin:0 }}>Rider dashboard</p>
+          <p style={{ fontSize:12, color:'rgba(255,255,255,0.75)', margin:0 }}>Rider dashboard{user?.acting_owner ? ' · route owner' : ''}</p>
           <h2 style={{ fontSize:20, color:'#fff' }}>{user?.name}</h2>
         </div>
         <div style={{ width:44, height:44, borderRadius:22, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--pr)', fontWeight:700, fontSize:18 }}>
@@ -75,7 +75,7 @@ export default function RiderDashboard() {
       <div className="section-label">Route status</div>
       <RouteStatusTiles routes={routes} value={statusFilter} onChange={setStatusFilter} />
 
-      <div className="section-label" style={{ marginTop:10 }}>Your Assigned Routes{statusFilter ? ' · filtered' : ''}</div>
+      <div className="section-label" style={{ marginTop:10 }}>{user?.acting_owner ? 'Your Routes' : 'Your Assigned Routes'}{statusFilter ? ' · filtered' : ''}</div>
 
       <ViewToggle value={view} onChange={setView} />
       {loading && <div className="spinner" />}
@@ -140,7 +140,7 @@ export default function RiderDashboard() {
       {view === 'cards' && !loading && visibleRoutes.length === 0 && (
         <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:60 }}>
           <i className="ti ti-calendar-off" style={{ fontSize:48, display:'block', marginBottom:12 }} />
-          {statusFilter ? 'No routes with this status' : <>No routes assigned yet<br/><span style={{ fontSize:13 }}>Contact your admin</span></>}
+          {statusFilter ? 'No routes with this status' : user?.acting_owner ? 'You have no routes yet' : <>No routes assigned yet<br/><span style={{ fontSize:13 }}>Contact your admin</span></>}
         </div>
       )}
 

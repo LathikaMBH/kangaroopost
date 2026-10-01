@@ -2,10 +2,11 @@
 //   view   : admin, the route's owner, the rider assigned to it
 //   manage : admin, the route's owner            (edit, delete, assign a rider, add/edit/delete stops)
 //   ride   : the rider assigned to it            (start, pause, resume, deliver stops, send GPS)
+//            A route owner signed in as a rider (acting_owner) counts as the rider of every route they own.
 const { queries } = require('../database');
 
 const isOwnerOf = (u, route) => u.role === 'route_owner' && route.owner_id === u.id;
-const isRiderOf = (u, route) => u.role === 'rider' && route.rider_id === u.id;
+const isRiderOf = (u, route) => u.role === 'rider' && (route.rider_id === u.id || (u.acting_owner === true && route.owner_id === u.id));
 
 const canView   = (u, route) => u.role === 'admin' || isOwnerOf(u, route) || isRiderOf(u, route);
 const canManage = (u, route) => u.role === 'admin' || isOwnerOf(u, route);

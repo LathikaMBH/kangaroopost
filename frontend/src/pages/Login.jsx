@@ -22,13 +22,14 @@ export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, role);
       if (user.role === 'admin')       navigate('/admin');
       else if (user.role === 'route_owner') navigate('/owner');
       else navigate('/rider');
@@ -52,6 +53,14 @@ export default function Login() {
         <div className="field" style={FIELD_STYLE}>
           <label className="label">Password</label>
           <input className="input" style={INPUT_STYLE} type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} required />
+        </div>
+        <div className="field" style={FIELD_STYLE}>
+          <label className="label">Role</label>
+          <select className="input" style={INPUT_STYLE} value={role} onChange={e=>setRole(e.target.value)}>
+            <option value="">Select role (not needed for admin)</option>
+            <option value="route_owner">Route owner</option>
+            <option value="rider">Rider</option>
+          </select>
         </div>
         {error && <div style={{ background:'var(--red-tint)', border:'1px solid #C2343855', borderRadius:12, padding:'10px 14px', color:'var(--red)', fontSize:13 }}><i className="ti ti-alert-triangle" /> {error}</div>}
         <button className="btn btn-primary" style={BUTTON_STYLE} type="submit" disabled={loading}>

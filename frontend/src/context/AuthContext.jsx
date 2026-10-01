@@ -16,8 +16,9 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    const data = await api.login({ email, password });
+  // role: 'route_owner' | 'rider' | '' (admin, or the account's own role)
+  const login = async (email, password, role) => {
+    const data = await api.login({ email, password, role: role || undefined });
     localStorage.setItem('kp_token', data.token);
     localStorage.setItem('kp_user', JSON.stringify(data.user));
     setUser(data.user);

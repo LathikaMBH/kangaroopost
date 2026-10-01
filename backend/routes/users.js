@@ -48,13 +48,14 @@ router.get('/owners', auth, adminOnly, wrap(async (req, res) => res.json(await q
 // ── Admin: create route owner ────────────────────────────────────────────────
 router.post('/owners', auth, adminOnly, wrap(async (req, res) => {
   const { name, email, password, city = '', phone = '' } = req.body;
+  const can_ride = req.body.can_ride === true; // the Rider role on top of Route owner
   const ph = normalizePhone(phone);
   if (ph === null) return res.status(400).json({ error: PHONE_ERROR });
   if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password required' });
   try {
     const hash = bcrypt.hashSync(password, 10);
-    const user = await queries.createUser(name, email.toLowerCase().trim(), hash, 'route_owner', { city, phone: ph, owner_id: null });
-    res.status(201).json({ id: user.id, name, email, role: 'route_owner', city, phone: ph });
+    const user = await queries.createUser(name, email.toLowerCase().trim(), hash, 'route_owner', { city, phone: ph, owner_id: null, can_ride });
+    res.status(201).json({ id: user.id, name, email, role: 'route_owner', city, phone: ph, can_ride });
   } catch (e) {
     if (e.message === 'EMAIL_EXISTS') return res.status(409).json({ error: 'Email already exists' });
     res.status(500).json({ error: e.message });
@@ -66,6 +67,7 @@ router.put('/owners/:id', auth, adminOnly, wrap(async (req, res) => {
   if (!await queries.getOwnerById(req.params.id)) return res.status(404).json({ error: 'Route owner not found' });
   const { data, error } = profileUpdate(req.body);
   if (error) return res.status(400).json({ error });
+  if (typeof req.body.can_ride === 'boolean') data.can_ride = req.body.can_ride;
   try {
     res.json(await queries.updateUser(req.params.id, data));
   } catch (e) {
