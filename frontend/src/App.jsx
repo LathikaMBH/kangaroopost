@@ -11,6 +11,7 @@ import AdminRoutes    from './pages/admin/Routes';
 // Owner
 import OwnerDashboard from './pages/owner/Dashboard';
 import OwnerRiders    from './pages/owner/Riders';
+import OwnerComplaints from './pages/owner/Complaints';
 // Shared route pages (owner uses master's pages)
 import MasterRoutes   from './pages/master/Routes';
 import CreateRoute    from './pages/master/CreateRoute';
@@ -46,6 +47,7 @@ function AppRoutes() {
       {/* Route Owner */}
       <Route path="/owner"                   element={<Guard roles={['route_owner']}><Layout><OwnerDashboard /></Layout></Guard>} />
       <Route path="/owner/riders"            element={<Guard roles={['route_owner']}><Layout><OwnerRiders /></Layout></Guard>} />
+      <Route path="/owner/complaints"        element={<Guard roles={['route_owner']}><Layout><OwnerComplaints /></Layout></Guard>} />
       <Route path="/owner/routes"            element={<Guard roles={['route_owner']}><Layout><MasterRoutes base="/owner" /></Layout></Guard>} />
       <Route path="/owner/routes/new"        element={<Guard roles={['route_owner']}><Layout><CreateRoute base="/owner" /></Layout></Guard>} />
       <Route path="/owner/routes/:id"        element={<Guard roles={['route_owner']}><Layout><RouteDetail base="/owner" /></Layout></Guard>} />

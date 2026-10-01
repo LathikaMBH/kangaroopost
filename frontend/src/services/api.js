@@ -43,4 +43,10 @@ export default {
   deliverStop:   (id, m)    => api.post(`/delivery/stop/${id}`, { method: m }),
   endRoute:      (id)       => api.post(`/delivery/end/${id}`),
   pingLocation:  (d)        => api.post('/delivery/ping', d),
+  // Missed-delivery complaints
+  getComplaints:    ()      => api.get('/complaints'),
+  createComplaint:  (d)     => api.post('/complaints', d),
+  acceptComplaint:  (id)    => api.post(`/complaints/${id}/accept`),
+  resolveComplaint: (id)    => api.post(`/complaints/${id}/resolve`),
+  deleteComplaint:  (id)    => api.delete(`/complaints/${id}`),
 };
