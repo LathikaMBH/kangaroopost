@@ -33,6 +33,7 @@ app.use('/api/users',    require('./routes/users'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/complaints', require('./routes/complaints'));
 app.use('/api/areas',    require('./routes/areas'));
+app.use('/api/catalog',  require('./routes/catalog'));   // the website's server only (X-Api-Key)
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 

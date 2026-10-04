@@ -21,4 +21,9 @@ let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 if (!ADMIN_PASSWORD && !isProd) ADMIN_PASSWORD = 'admin123'; // local development only
 if (ADMIN_PASSWORD && isProd && ADMIN_PASSWORD.length < 10) throw new Error('ADMIN_PASSWORD must be at least 10 characters in production');
 
-module.exports = { isProd, JWT_SECRET, CORS_ORIGINS, ADMIN_EMAIL, ADMIN_PASSWORD };
+// ── Key the website's server uses to read the route catalog (/api/catalog) ──────
+// Not set: the catalog is switched off. Generate one the same way as JWT_SECRET and give the website the same value.
+const CATALOG_API_KEY = process.env.CATALOG_API_KEY || '';
+if (CATALOG_API_KEY && CATALOG_API_KEY.length < 32) throw new Error('CATALOG_API_KEY is too short: use at least 32 characters');
+
+module.exports = { isProd, JWT_SECRET, CORS_ORIGINS, ADMIN_EMAIL, ADMIN_PASSWORD, CATALOG_API_KEY };

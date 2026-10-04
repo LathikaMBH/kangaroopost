@@ -261,6 +261,21 @@ const queries = {
   updateCity:   (id, region_id, name) => one('UPDATE cities SET region_id = $2, name = $3 WHERE id = $1 RETURNING *', [Number(id), Number(region_id), name]),
   deleteCity:   (id)             => q('DELETE FROM cities WHERE id = $1', [Number(id)]),
 
+  // ── Catalog (what the website shows customers) ───────────────────────────
+  // routes that have a saved road line (all, or just route `id`), with their area and stop counts.
+  // Never rider, owner, status or addresses.
+  getCatalogRoutes: (id = null) => many(`
+    SELECT r.id, r.name, r.city_id, ci.name AS city_name, ci.region_id, rg.name AS region_name,
+           r.road_path->>'key' AS path_key, r.road_path->>'mode' AS path_mode,
+           (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.type = 'mailbox')   AS mailbox_count,
+           (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.type = 'apartment') AS apartment_count
+    FROM routes r JOIN cities ci ON ci.id = r.city_id JOIN regions rg ON rg.id = ci.region_id
+    WHERE r.road_path IS NOT NULL AND ($1::int IS NULL OR r.id = $1)`, [id === null ? null : Number(id)]),
+
+  // stop positions of many routes, in route order (only used to check a saved road line still matches)
+  getStopCoords: (route_ids) => many(
+    'SELECT route_id, lat, lng FROM stops WHERE route_id = ANY($1::int[]) ORDER BY route_id, order_num, id', [route_ids]),
+
   // ── Stops ────────────────────────────────────────────────────────────────
   getStopsByRoute: (route_id) => many('SELECT * FROM stops WHERE route_id = $1 ORDER BY order_num, id', [Number(route_id)]),
   getStopById:     (id)       => one('SELECT * FROM stops WHERE id = $1', [Number(id)]),
