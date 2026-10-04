@@ -165,7 +165,7 @@ npm start
 You should see:
 ```
 ✅ Database schema ready
-✅ Seed: admin@kangaroopost.com / admin123
+✅ Seed: admin@kangarooposti.com / admin123
 🚀 KangarooPost backend running on http://localhost:4000
 ```
 
@@ -189,7 +189,7 @@ Everything else works without one.
 ### Step 5 — Login with default credentials
 
 ```
-Email:    admin@kangaroopost.com
+Email:    admin@kangarooposti.com
 Password: admin123
 ```
 
@@ -393,6 +393,7 @@ Then **Variables** (Railway supplies `PORT` itself):
 | `ADMIN_EMAIL` | first admin's email (used on the first start only) |
 | `ADMIN_PASSWORD` | first admin's password, 10+ characters (first start only). **Not** `admin123` |
 | `PG_SSL` | `true` only if you use the database's *public* URL from outside Railway |
+| `WEBSITE_API_KEY` | optional, 32+ random characters: lets the Kangarooposti website's server read the route catalog and sign the admin in. The website gets the same value as `PAPERTRAIL_API_KEY` |
 
 If a required value is missing the service stops at startup and the deploy log says exactly which one.
 `ADMIN_EMAIL`/`ADMIN_PASSWORD` are only used to create the first admin; afterwards change the password in the app

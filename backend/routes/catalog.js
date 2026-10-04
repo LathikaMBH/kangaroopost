@@ -1,22 +1,16 @@
 // Read-only route catalog for the Kangarooposti website: region -> city -> route, and a route's road line.
-// Only the website's server calls this, with the shared key in the X-Api-Key header (CATALOG_API_KEY).
+// Only the website's server calls this, with the shared key in the X-Api-Key header (WEBSITE_API_KEY).
 //
 // Customers must never see stop pins, addresses, riders, owners or delivery state, so the answers only carry
 // names, mailbox/apartment counts and the road line (all legs joined into one, so the stop positions are not marked).
 // A route is listed only while its saved road line matches its current stops.
-const crypto = require('crypto');
 const router = require('express').Router();
 const wrap = require('../middleware/async');
+const websiteKey = require('../middleware/websiteKey');
 const { queries } = require('../database');
-const { CATALOG_API_KEY } = require('../config');
 const { isCurrent, joinLegs } = require('../lib/roadPath');
 
-const digest = s => crypto.createHash('sha256').update(String(s)).digest();
-router.use((req, res, next) => {
-  if (!CATALOG_API_KEY) return res.status(503).json({ error: 'The route catalog is not enabled' });
-  if (!crypto.timingSafeEqual(digest(req.get('x-api-key') || ''), digest(CATALOG_API_KEY))) return res.status(401).json({ error: 'Invalid API key' });
-  next();
-});
+router.use(websiteKey);
 
 // The routes customers may see. Checking every road line against its stops is cheap at today's size;
 // the result is kept for a short while so browsing the catalog does not repeat it on every click.
