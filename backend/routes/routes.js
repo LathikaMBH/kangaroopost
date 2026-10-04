@@ -18,29 +18,45 @@ router.get('/:id', auth, wrap(async (req, res) => {
   res.json({ ...route, stops: await queries.getStopsByRoute(route.id), road_path: await queries.getRoadPath(route.id) });
 }));
 
+// Every route is in a city (region -> city -> route). Sends 400 itself and returns null when the city is missing/unknown.
+async function checkCity(res, city_id) {
+  const id = Number(city_id);
+  const city = Number.isInteger(id) && id > 0 ? await queries.getCityById(id) : null;
+  if (!city) { res.status(400).json({ error: 'Choose the city this route is in' }); return null; }
+  return city;
+}
+
 router.post('/', auth, ownerOrAdmin, wrap(async (req, res) => {
   const name = String(req.body.name ?? '').trim();
   if (!name) return res.status(400).json({ error: 'Name required' });
+  const city = await checkCity(res, req.body.city_id);
+  if (!city) return;
   let owner_id = req.user.id;
   if (req.user.role === 'admin' && req.body.owner_id) {
     const owner = await queries.getOwnerById(req.body.owner_id);
     if (!owner) return res.status(400).json({ error: 'Route owner not found' });
     owner_id = owner.id;
   }
-  res.status(201).json(await queries.createRoute(name, owner_id));
+  res.status(201).json(await queries.createRoute(name, owner_id, city.id, req.user.id));
 }));
 
 router.put('/:id', auth, ownerOrAdmin, wrap(async (req, res) => {
   const route = await loadRoute(req, res, req.params.id, canManage);
   if (!route) return;
-  const { name, rider_id } = req.body;
+  const { name, rider_id, city_id } = req.body;
   let newRider = route.rider_id;
   if (rider_id !== undefined) {
     const r = await checkRiderForRoute(res, rider_id, route);
     if (!r.ok) return;
     newRider = r.rider_id;
   }
-  res.json(await queries.updateRoute(route.id, { name: String(name ?? '').trim() || route.name, rider_id: newRider }));
+  let newCity = null;
+  if (city_id !== undefined) {
+    const city = await checkCity(res, city_id);
+    if (!city) return;
+    newCity = city.id;
+  }
+  res.json(await queries.updateRoute(route.id, { name: String(name ?? '').trim() || route.name, rider_id: newRider, city_id: newCity }));
 }));
 
 router.delete('/:id', auth, ownerOrAdmin, wrap(async (req, res) => {

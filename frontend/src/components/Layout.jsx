@@ -11,6 +11,7 @@ export default function Layout({ children }) {
     { icon:'ti-home',    label:'Home',   path:'/admin' },
     { icon:'ti-users',   label:'Owners', path:'/admin/owners' },
     { icon:'ti-map-2',   label:'Routes', path:'/admin/routes' },
+    { icon:'ti-map-pin', label:'Areas',  path:'/admin/areas' },
   ];
   const ownerTabs = [
     { icon:'ti-home',    label:'Home',   path:'/owner' },

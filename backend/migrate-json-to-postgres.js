@@ -26,7 +26,10 @@ const { pool, init } = require('./database');
   // users first (routes reference riders), keeping original ids so links stay valid
   await ins('users', ['id', 'name', 'email', 'password_hash', 'role', 'city', 'phone', 'owner_id', 'created_at'],
     (d.users || []).map(u => ({ ...u, city: u.city || '', phone: u.phone || '' })));
-  await ins('routes', ['id', 'name', 'owner_id', 'rider_id', 'status', 'started_at', 'paused_at', 'completed_at', 'created_at'], d.routes || []);
+  // the old file has no areas: those routes go in the first city (Rauma), with their owner as creator
+  const { rows: [firstCity] } = await pool.query('SELECT id FROM cities ORDER BY id LIMIT 1');
+  await ins('routes', ['id', 'name', 'owner_id', 'rider_id', 'status', 'started_at', 'paused_at', 'completed_at', 'created_at', 'city_id', 'created_by'],
+    (d.routes || []).map(r => ({ ...r, city_id: firstCity.id, created_by: r.owner_id })));
   await ins('stops', ['id', 'route_id', 'order_num', 'address', 'lat', 'lng', 'type', 'delivered', 'delivered_at', 'delivered_method', 'created_at'], d.stops || []);
   await ins('location_pings', ['id', 'route_id', 'rider_id', 'lat', 'lng', 'recorded_at'], d.location_pings || []);
 

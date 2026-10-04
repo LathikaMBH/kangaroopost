@@ -5,6 +5,7 @@ import api from '../../services/api';
 import MapCanvas, { MapFocus, CircleMarker, DotMarker, RouteLine } from '../../components/GoogleMapView';
 import useRoadPath from '../../services/useRoadPath';
 import { MODE_WARNING } from '../../services/roads';
+import AreaPicker from '../../components/AreaPicker';
 
 const RAUMA = [61.1282, 21.5117]; // default map centre
 
@@ -18,6 +19,7 @@ export default function CreateRoute({ base = '/owner' }) {
   const [newAddress, setNewAddress] = useState('');
 
   const [routeName, setRouteName] = useState('');
+  const [cityId, setCityId] = useState(null);       // region -> city the route is in
   const [stops, setStops] = useState([]);
   const [gpsPos, setGpsPos] = useState(null);
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
@@ -34,6 +36,7 @@ export default function CreateRoute({ base = '/owner' }) {
     if (!isEdit) return;
     api.getRoute(id).then(r => {
       setRouteName(r.name);
+      setCityId(r.city_id);
       setStops(r.stops || []);
       setSavedPath(r.road_path || null);
       if (r.stops?.length) setFocus([r.stops[0].lat, r.stops[0].lng]);
@@ -60,13 +63,14 @@ export default function CreateRoute({ base = '/owner' }) {
   // Ensure route exists in DB before adding stops
   const ensureRoute = async () => {
     if (routeId) return routeId;
-    const r = await api.createRoute({ name: routeName || 'New Route' });
+    const r = await api.createRoute({ name: routeName || 'New Route', city_id: cityId });
     setRouteId(r.id);
     return r.id;
   };
 
   // Adds a stop at (lat, lng): at the end normally, or at the chosen position when opened from a "+".
   const addStop = async (lat, lng) => {
+    if (!routeId && !cityId) return alert('Please choose the region and city of this route first');
     try {
       const rId = await ensureRoute();
       if (insertMode) {
@@ -108,11 +112,12 @@ export default function CreateRoute({ base = '/owner' }) {
 
   const saveRoute = async () => {
     if (!routeName.trim()) return alert('Please enter a route name');
+    if (!cityId) return alert('Please choose the region and city of this route');
     if (stops.length === 0) return alert('Please add at least one stop');
     setSaving(true);
     try {
       const rId = await ensureRoute();
-      await api.updateRoute(rId, { name: routeName });
+      await api.updateRoute(rId, { name: routeName, city_id: cityId });
       navigate(`${base}/routes`);
     } catch (e) {
       alert('Save failed: ' + (e.error || e.message));
@@ -143,6 +148,8 @@ export default function CreateRoute({ base = '/owner' }) {
         <input className="input" style={{ flex:1, borderColor:'var(--pr)' }}
           placeholder="Route name e.g. Rauma North" value={routeName} onChange={e => setRouteName(e.target.value)} />
       </div>
+
+      {!insertMode && <AreaPicker cityId={cityId} onChange={setCityId} style={{ margin:'0 22px 10px', flexShrink:0 }} />}
 
       {insertMode && (
         <div style={{ margin:'0 22px 10px', padding:'10px 12px', background:'var(--card)', border:'1px solid var(--pr)66', borderRadius:14, flexShrink:0 }}>

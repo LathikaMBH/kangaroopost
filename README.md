@@ -132,10 +132,10 @@ npm start
 
 You should see:
 ```
-PostgreSQL ready: postgresql://postgres:postgres@localhost:5432/kangaroopost
+PostgreSQL ready: postgresql://postgres:postgres@localhost:5432/kangaroopostiapp
 ```
 
-The first run creates the `kangaroopost` database in `db/data/`. Leave this terminal
+The first run creates the `kangaroopostiapp` database in `db/data/`. Leave this terminal
 open — the database only runs while this process is running. Press `Ctrl+C` to stop it;
 your data is kept and is there next time.
 
@@ -151,7 +151,7 @@ npm install
 Create a `.env` file in the `backend/` folder:
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/kangaroopost
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/kangaroopostiapp
 JWT_SECRET=your_random_secret_here
 PORT=4000
 NODE_ENV=development
@@ -249,10 +249,10 @@ frontend (port 3000) together. `Ctrl+C` stops all three.
 ### Using your own PostgreSQL
 
 Skip Step 2 and point `DATABASE_URL` in `backend/.env` at your server (create the
-database first, e.g. `createdb kangaroopost`):
+database first, e.g. `createdb kangaroopostiapp`):
 
 ```env
-DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/kangaroopost
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/kangaroopostiapp
 ```
 
 Alternatively use separate variables: `PG_HOST`, `PG_PORT`, `PG_DATABASE`, `PG_USER`,
