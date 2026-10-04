@@ -7,7 +7,7 @@ const pool = new Pool(
     ? { connectionString: process.env.DATABASE_URL, ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : undefined }
     : {
         host: process.env.PG_HOST || 'localhost', port: Number(process.env.PG_PORT || 5432),
-        database: process.env.PG_DATABASE || 'kangaroopost',
+        database: process.env.PG_DATABASE || 'kangaroopostiapp',
         user: process.env.PG_USER || 'postgres', password: process.env.PG_PASSWORD || 'postgres',
       }
 );
@@ -87,6 +87,32 @@ CREATE INDEX IF NOT EXISTS idx_complaints_rider ON complaints(rider_id);
 ALTER TABLE complaints ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
 ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;
 ALTER TABLE complaints ADD CONSTRAINT complaints_status_check CHECK (status IN ('open','accepted','resolved'));
+
+-- where a route is: region (e.g. Satakunta) -> city (e.g. Rauma) -> route. Names are unique ignoring case.
+CREATE TABLE IF NOT EXISTS regions (
+  id         SERIAL PRIMARY KEY,
+  name       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_regions_name ON regions (lower(name));
+CREATE TABLE IF NOT EXISTS cities (
+  id         SERIAL PRIMARY KEY,
+  region_id  INTEGER NOT NULL REFERENCES regions(id) ON DELETE RESTRICT,
+  name       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_cities_name ON cities (region_id, lower(name));
+-- first run only: the area the existing routes are in
+INSERT INTO regions (name) SELECT 'Satakunta' WHERE NOT EXISTS (SELECT 1 FROM regions);
+INSERT INTO cities (region_id, name) SELECT id, 'Rauma' FROM regions WHERE name = 'Satakunta' AND NOT EXISTS (SELECT 1 FROM cities);
+
+-- every route is in one city; created_by is who made it (today the owner, later also an admin or super user)
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS city_id    INTEGER REFERENCES cities(id) ON DELETE RESTRICT;
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id)  ON DELETE SET NULL;
+UPDATE routes SET city_id = (SELECT id FROM cities ORDER BY id LIMIT 1) WHERE city_id IS NULL;
+UPDATE routes SET created_by = owner_id WHERE created_by IS NULL AND owner_id IN (SELECT id FROM users);
+ALTER TABLE routes ALTER COLUMN city_id SET NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_routes_city ON routes(city_id);
 `;
 
 async function init() {
@@ -108,12 +134,15 @@ const SAFE_USER = 'id, name, email, role, city, phone, owner_id, can_ride, creat
 
 const ROUTE_SELECT = `
   SELECT r.id, r.name, r.owner_id, r.rider_id, r.status, r.started_at, r.paused_at, r.completed_at, r.created_at,
+         r.city_id, r.created_by, ci.name AS city_name, ci.region_id, rg.name AS region_name,
          rd.name AS rider_name, ow.name AS owner_name,
          (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id)                 AS stop_count,
          (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.delivered) AS delivered_count
   FROM routes r
   LEFT JOIN users rd ON rd.id = r.rider_id
-  LEFT JOIN users ow ON ow.id = r.owner_id`;
+  LEFT JOIN users ow ON ow.id = r.owner_id
+  LEFT JOIN cities ci ON ci.id = r.city_id
+  LEFT JOIN regions rg ON rg.id = ci.region_id`;
 
 const COMPLAINT_SELECT = `
   SELECT c.*, rd.name AS rider_name, ow.name AS owner_name
@@ -192,10 +221,16 @@ const queries = {
   getRoutesForRider: (rider_id) => many(`${ROUTE_SELECT} WHERE r.rider_id = $1 ORDER BY r.id DESC`, [Number(rider_id)]),
   getRouteById:      (id)       => one(`${ROUTE_SELECT} WHERE r.id = $1`, [Number(id)]),
 
-  createRoute: (name, owner_id) => one('INSERT INTO routes (name, owner_id) VALUES ($1,$2) RETURNING *', [name, Number(owner_id)]),
+  createRoute: async (name, owner_id, city_id, created_by) => {
+    const { id } = await one('INSERT INTO routes (name, owner_id, city_id, created_by) VALUES ($1,$2,$3,$4) RETURNING id',
+      [name, Number(owner_id), Number(city_id), Number(created_by)]);
+    return queries.getRouteById(id);
+  },
 
+  // city_id is only changed when given
   updateRoute: async (id, data) => {
-    await q('UPDATE routes SET name = $2, rider_id = $3 WHERE id = $1', [Number(id), data.name, data.rider_id ?? null]);
+    await q('UPDATE routes SET name = $2, rider_id = $3, city_id = COALESCE($4, city_id) WHERE id = $1',
+      [Number(id), data.name, data.rider_id ?? null, data.city_id ?? null]);
     return queries.getRouteById(id);
   },
 
@@ -205,6 +240,41 @@ const queries = {
   setRoadPath: (id, roadPath) => q('UPDATE routes SET road_path = $2 WHERE id = $1', [Number(id), JSON.stringify(roadPath)]),
 
   assignRoute: (rider_id, route_id) => q('UPDATE routes SET rider_id = $1 WHERE id = $2', [rider_id ? Number(rider_id) : null, Number(route_id)]),
+
+  // ── Areas (regions and their cities) ─────────────────────────────────────
+  // regions A-Z, each with its cities A-Z and how many routes each city has
+  getAreas: () => many(`
+    SELECT rg.id, rg.name,
+           COALESCE(json_agg(json_build_object('id', ci.id, 'name', ci.name, 'route_count',
+                      (SELECT COUNT(*)::int FROM routes r WHERE r.city_id = ci.id)) ORDER BY lower(ci.name))
+                    FILTER (WHERE ci.id IS NOT NULL), '[]') AS cities
+    FROM regions rg LEFT JOIN cities ci ON ci.region_id = rg.id
+    GROUP BY rg.id ORDER BY lower(rg.name)`),
+
+  getRegionById: (id) => one('SELECT * FROM regions WHERE id = $1', [Number(id)]),
+  getCityById:   (id) => one('SELECT * FROM cities WHERE id = $1', [Number(id)]),
+
+  createRegion: (name)           => one('INSERT INTO regions (name) VALUES ($1) RETURNING *', [name]),
+  renameRegion: (id, name)       => one('UPDATE regions SET name = $2 WHERE id = $1 RETURNING *', [Number(id), name]),
+  deleteRegion: (id)             => q('DELETE FROM regions WHERE id = $1', [Number(id)]),
+  createCity:   (region_id, name) => one('INSERT INTO cities (region_id, name) VALUES ($1,$2) RETURNING *', [Number(region_id), name]),
+  updateCity:   (id, region_id, name) => one('UPDATE cities SET region_id = $2, name = $3 WHERE id = $1 RETURNING *', [Number(id), Number(region_id), name]),
+  deleteCity:   (id)             => q('DELETE FROM cities WHERE id = $1', [Number(id)]),
+
+  // ── Catalog (what the website shows customers) ───────────────────────────
+  // routes that have a saved road line (all, or just route `id`), with their area and stop counts.
+  // Never rider, owner, status or addresses.
+  getCatalogRoutes: (id = null) => many(`
+    SELECT r.id, r.name, r.city_id, ci.name AS city_name, ci.region_id, rg.name AS region_name,
+           r.road_path->>'key' AS path_key, r.road_path->>'mode' AS path_mode,
+           (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.type = 'mailbox')   AS mailbox_count,
+           (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.type = 'apartment') AS apartment_count
+    FROM routes r JOIN cities ci ON ci.id = r.city_id JOIN regions rg ON rg.id = ci.region_id
+    WHERE r.road_path IS NOT NULL AND ($1::int IS NULL OR r.id = $1)`, [id === null ? null : Number(id)]),
+
+  // stop positions of many routes, in route order (only used to check a saved road line still matches)
+  getStopCoords: (route_ids) => many(
+    'SELECT route_id, lat, lng FROM stops WHERE route_id = ANY($1::int[]) ORDER BY route_id, order_num, id', [route_ids]),
 
   // ── Stops ────────────────────────────────────────────────────────────────
   getStopsByRoute: (route_id) => many('SELECT * FROM stops WHERE route_id = $1 ORDER BY order_num, id', [Number(route_id)]),

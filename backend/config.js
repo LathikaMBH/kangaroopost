@@ -16,9 +16,15 @@ if (!isProd) CORS_ORIGINS.push('http://localhost:3000');
 if (isProd && CORS_ORIGINS.length === 0) console.warn('⚠️  CORS_ORIGINS is empty: browsers on other sites cannot call the API directly (live updates will fail)');
 
 // ── First admin account (created only when it does not exist yet) ───────────────
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@kangaroopost.com').trim().toLowerCase();
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@kangarooposti.com').trim().toLowerCase();
 let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 if (!ADMIN_PASSWORD && !isProd) ADMIN_PASSWORD = 'admin123'; // local development only
 if (ADMIN_PASSWORD && isProd && ADMIN_PASSWORD.length < 10) throw new Error('ADMIN_PASSWORD must be at least 10 characters in production');
 
-module.exports = { isProd, JWT_SECRET, CORS_ORIGINS, ADMIN_EMAIL, ADMIN_PASSWORD };
+// ── Key the Kangarooposti website's server uses (route catalog, admin sign-in) ──
+// Not set: the website connection is switched off. Generate one the same way as JWT_SECRET; the website's .env gets
+// the same value as PAPERTRAIL_API_KEY.
+const WEBSITE_API_KEY = process.env.WEBSITE_API_KEY || '';
+if (WEBSITE_API_KEY && WEBSITE_API_KEY.length < 32) throw new Error('WEBSITE_API_KEY is too short: use at least 32 characters');
+
+module.exports = { isProd, JWT_SECRET, CORS_ORIGINS, ADMIN_EMAIL, ADMIN_PASSWORD, WEBSITE_API_KEY };

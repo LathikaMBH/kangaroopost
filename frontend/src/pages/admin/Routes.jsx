@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
+import { CityFilter, areaLabel } from '../../components/AreaPicker';
 
 const StatusBadge = ({ status }) => {
   const m = {
@@ -19,6 +20,8 @@ export default function AdminRoutes() {
   const filterOwner = params.get('owner');
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cityId, setCityId] = useState(null);
+  const shown = cityId ? routes.filter(r => r.city_id === cityId) : routes;
 
   useEffect(() => {
     api.getRoutes().then(r => setRoutes(filterOwner ? r.filter(x => String(x.owner_id) === filterOwner) : r))
@@ -33,12 +36,14 @@ export default function AdminRoutes() {
         <div style={{ width:30 }} />
       </div>
       <div style={{ padding:'0 22px' }}>
+        <CityFilter routes={routes} value={cityId} onChange={setCityId} />
         {loading && <div className="spinner" />}
-        {routes.map(r => (
+        {shown.map(r => (
           <div key={r.id} className="card" style={{ marginBottom:14 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
               <div>
                 <div style={{ fontWeight:600, fontSize:15 }}>{r.name}</div>
+                {r.city_name && <div style={{ color:'var(--mut)', fontSize:12, marginTop:3 }}><i className="ti ti-map-pin" style={{ fontSize:11 }} /> {areaLabel(r)}</div>}
                 <div style={{ color:'var(--mut)', fontSize:12, marginTop:3 }}>
                   Owner: <span style={{ color:'var(--pl)' }}>{r.owner_name || '—'}</span>
                   {r.rider_name && <> · Rider: <span style={{ color:'var(--sub)' }}>{r.rider_name}</span></>}
@@ -53,7 +58,7 @@ export default function AdminRoutes() {
             </div>
           </div>
         ))}
-        {!loading && routes.length === 0 && (
+        {!loading && shown.length === 0 && (
           <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:60 }}>No routes found</div>
         )}
       </div>

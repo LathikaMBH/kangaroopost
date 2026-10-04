@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { CityFilter, areaLabel } from '../../components/AreaPicker';
 
 const StatusBadge = ({ status }) => (
   <span className={`badge badge-${status}`}>
@@ -12,6 +13,7 @@ export default function MasterRoutes({ base = '/owner' }) {
   const navigate = useNavigate();
   const [routes, setRoutes] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [cityId, setCityId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = () => api.getRoutes().then(setRoutes).finally(() => setLoading(false));
@@ -29,7 +31,7 @@ export default function MasterRoutes({ base = '/owner' }) {
     load();
   };
 
-  const filtered = filter === 'all' ? routes : routes.filter(r => r.status === filter);
+  const filtered = routes.filter(r => (filter === 'all' || r.status === filter) && (!cityId || r.city_id === cityId));
   const filters = [
     { k:'all', l:'All' }, { k:'not_started', l:'Not started' },
     { k:'ongoing', l:'In progress' }, { k:'paused', l:'Paused' }, { k:'completed', l:'Completed' }
@@ -54,6 +56,8 @@ export default function MasterRoutes({ base = '/owner' }) {
         </div>
       </div>
 
+      <div style={{ padding:'0 22px' }}><CityFilter routes={routes} value={cityId} onChange={setCityId} /></div>
+
       {/* Filter tabs */}
       <div style={{ display:'flex', gap:8, padding:'0 22px 16px', overflowX:'auto' }}>
         {filters.map(f => (
@@ -75,6 +79,7 @@ export default function MasterRoutes({ base = '/owner' }) {
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
               <div>
                 <div style={{ fontWeight:600, fontSize:15, color:'var(--tx)' }}>{r.name}</div>
+                {r.city_name && <div style={{ color:'var(--mut)', fontSize:12, marginTop:3 }}><i className="ti ti-map-pin" style={{ fontSize:11 }} /> {areaLabel(r)}</div>}
                 <div style={{ color:'var(--mut)', fontSize:12, marginTop:3 }}>
                   {r.rider_name ? <><i className="ti ti-user" style={{ fontSize:11 }} /> {r.rider_name}</> : <span style={{ color:'var(--amb)' }}><i className="ti ti-alert-triangle" style={{ fontSize:11 }} /> Unassigned</span>}
                 </div>

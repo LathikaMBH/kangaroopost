@@ -31,6 +31,14 @@ export default {
   updateRoute:   (id, d)    => api.put(`/routes/${id}`, d),
   deleteRoute:   (id)       => api.delete(`/routes/${id}`),
   assignRoute:   (id, rid)  => api.post(`/routes/${id}/assign`, { rider_id: rid }),
+  // Areas: regions and their cities (changes: admin only)
+  getAreas:      ()         => api.get('/areas'),
+  createRegion:  (name)     => api.post('/areas/regions', { name }),
+  renameRegion:  (id, name) => api.put(`/areas/regions/${id}`, { name }),
+  deleteRegion:  (id)       => api.delete(`/areas/regions/${id}`),
+  createCity:    (region_id, name) => api.post('/areas/cities', { region_id, name }),
+  updateCity:    (id, d)    => api.put(`/areas/cities/${id}`, d),
+  deleteCity:    (id)       => api.delete(`/areas/cities/${id}`),
   // Stops
   createStop:    (rid, d)   => api.post(`/routes/${rid}/stops`, d),
   saveRoadPath:  (rid, d)   => api.put(`/routes/${rid}/road-path`, d),

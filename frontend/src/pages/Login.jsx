@@ -69,7 +69,7 @@ export default function Login() {
       </form>
       {import.meta.env.DEV && <div style={{ marginTop:24, padding:14, background:'var(--card)', borderRadius:16, border:'1px solid var(--border)', width:'100%', fontSize:12 }}>
         <div style={{ color:'var(--mut)', marginBottom:8, fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.06em' }}>Demo credentials</div>
-        <div style={{ color:'var(--sub)' }}>Admin: <span style={{ color:'var(--pl)' }}>admin@kangaroopost.com</span> / <span style={{ color:'var(--pl)' }}>admin123</span></div>
+        <div style={{ color:'var(--sub)' }}>Admin: <span style={{ color:'var(--pl)' }}>admin@kangarooposti.com</span> / <span style={{ color:'var(--pl)' }}>admin123</span></div>
       </div>}
     </div>
     </div>

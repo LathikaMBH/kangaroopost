@@ -132,10 +132,10 @@ npm start
 
 You should see:
 ```
-PostgreSQL ready: postgresql://postgres:postgres@localhost:5432/kangaroopost
+PostgreSQL ready: postgresql://postgres:postgres@localhost:5432/kangaroopostiapp
 ```
 
-The first run creates the `kangaroopost` database in `db/data/`. Leave this terminal
+The first run creates the `kangaroopostiapp` database in `db/data/`. Leave this terminal
 open — the database only runs while this process is running. Press `Ctrl+C` to stop it;
 your data is kept and is there next time.
 
@@ -151,7 +151,7 @@ npm install
 Create a `.env` file in the `backend/` folder:
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/kangaroopost
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/kangaroopostiapp
 JWT_SECRET=your_random_secret_here
 PORT=4000
 NODE_ENV=development
@@ -165,7 +165,7 @@ npm start
 You should see:
 ```
 ✅ Database schema ready
-✅ Seed: admin@kangaroopost.com / admin123
+✅ Seed: admin@kangarooposti.com / admin123
 🚀 KangarooPost backend running on http://localhost:4000
 ```
 
@@ -189,7 +189,7 @@ Everything else works without one.
 ### Step 5 — Login with default credentials
 
 ```
-Email:    admin@kangaroopost.com
+Email:    admin@kangarooposti.com
 Password: admin123
 ```
 
@@ -249,10 +249,10 @@ frontend (port 3000) together. `Ctrl+C` stops all three.
 ### Using your own PostgreSQL
 
 Skip Step 2 and point `DATABASE_URL` in `backend/.env` at your server (create the
-database first, e.g. `createdb kangaroopost`):
+database first, e.g. `createdb kangaroopostiapp`):
 
 ```env
-DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/kangaroopost
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/kangaroopostiapp
 ```
 
 Alternatively use separate variables: `PG_HOST`, `PG_PORT`, `PG_DATABASE`, `PG_USER`,
@@ -393,6 +393,7 @@ Then **Variables** (Railway supplies `PORT` itself):
 | `ADMIN_EMAIL` | first admin's email (used on the first start only) |
 | `ADMIN_PASSWORD` | first admin's password, 10+ characters (first start only). **Not** `admin123` |
 | `PG_SSL` | `true` only if you use the database's *public* URL from outside Railway |
+| `WEBSITE_API_KEY` | optional, 32+ random characters: lets the Kangarooposti website's server read the route catalog and sign the admin in. The website gets the same value as `PAPERTRAIL_API_KEY` |
 
 If a required value is missing the service stops at startup and the deploy log says exactly which one.
 `ADMIN_EMAIL`/`ADMIN_PASSWORD` are only used to create the first admin; afterwards change the password in the app
