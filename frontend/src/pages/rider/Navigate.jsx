@@ -22,9 +22,14 @@ export default function RiderNavigate(){
   const[waitingApt,setWaitingApt]=useState(false);const[toast,setToast]=useState(null);
   const[openId,setOpenId]=useState(null);
   const[savedPath,setSavedPath]=useState(null);
+  const[mapMax,setMapMax]=useState(false);   // map fills the whole screen
   const watchRef=useRef(null);const pingRef=useRef(null);const processingRef=useRef(false);const pausedRef=useRef(false);const stopsRef=useRef([]);
 
   useEffect(()=>{api.getRoute(routeId).then(r=>{setRoute(r);setStops(r.stops||[]);setSavedPath(r.road_path||null);stopsRef.current=r.stops||[];});if(socket)socket.emit('join:route',routeId);return()=>stopGPS();},[routeId]);
+
+  // leave the full-screen map when the rider has to act on the controls below it (apartment delivery, route done)
+  useEffect(()=>{if(waitingApt||status===S.DONE)setMapMax(false);},[waitingApt,status]);
+  useEffect(()=>{if(!mapMax)return;const onKey=e=>{if(e.key==='Escape')setMapMax(false);};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[mapMax]);
 
   const road=useRoadPath({routeId,stops,saved:savedPath,canSave:true});   // roads between the stops (saved path, or asked from Google once)
 
@@ -102,7 +107,7 @@ export default function RiderNavigate(){
         <div style={{height:'100%',width:`${pct}%`,background:isPaused?'var(--apt)':'var(--grn)',borderRadius:2,transition:'width 0.5s'}}/>
       </div>
 
-      <div style={{flex:'0 0 42%',margin:'0 22px',borderRadius:16,overflow:'hidden',border:`2px solid ${isPaused?'#B5720A88':'#C8C4BC'}`,flexShrink:0,position:'relative'}}>
+      <div style={mapMax?{position:'absolute',inset:0,zIndex:1500,background:'var(--bg)',overflow:'hidden'}:{flex:'0 0 42%',margin:'0 22px',borderRadius:16,overflow:'hidden',border:`2px solid ${isPaused?'#B5720A88':'#C8C4BC'}`,flexShrink:0,position:'relative'}}>
         <MapCanvas center={riderPos||[stops[0]?.lat||61.1282,stops[0]?.lng||21.5117]} zoom={16}>
           <MapFollow pos={riderPos} follow={status===S.RUNNING}/>
           <RouteLine path={doneLine} color="#1C9A54" weight={5} opacity={0.85}/>
@@ -113,6 +118,17 @@ export default function RiderNavigate(){
           {openStop&&<InfoWindow position={{lat:openStop.lat,lng:openStop.lng}} pixelOffset={[0,-18]} onCloseClick={()=>setOpenId(null)}><div style={{color:'#222',fontSize:13}}>{openStop.address}<br/><small>{openStop.type}</small></div></InfoWindow>}
           {riderPos&&<DotMarker position={riderPos} size={24}/>}
         </MapCanvas>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setMapMax(m=>!m)} title={mapMax?'Exit full screen':'Full screen map'} aria-label={mapMax?'Exit full screen map':'Maximize the map'}
+          style={{position:'absolute',top:mapMax?'calc(12px + var(--safe-top))':10,right:10,zIndex:1100,width:40,height:40,padding:0,borderRadius:12,background:'var(--card)',color:'var(--tx)',boxShadow:'0 2px 8px rgba(0,0,0,0.25)'}}>
+          <i className={`ti ti-${mapMax?'arrows-minimize':'arrows-maximize'}`} style={{fontSize:20}}/>
+        </button>
+        {mapMax&&status===S.RUNNING&&nextStop&&<div style={{position:'absolute',left:12,right:12,bottom:'calc(34px + var(--safe-bot))',zIndex:1100,background:'var(--card)',borderRadius:14,padding:'10px 12px',border:'1.5px solid #4285F444',boxShadow:'0 4px 14px rgba(0,0,0,0.2)',display:'flex',alignItems:'center',gap:10}}>
+          <i className={`ti ti-${nextStop.type==='apartment'?'building':'navigation'}`} style={{fontSize:18,color:nextStop.type==='apartment'?'var(--apt)':'#4285F4',flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:'var(--mut)',fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>Stop {Math.min(nextIdx+1,totalStops)} / {totalStops} · {pct}%</div>
+            <div style={{fontSize:14,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{nextStop.address}</div>
+          </div>
+        </div>}
         {isPaused&&<div style={{position:'absolute',inset:0,background:'rgba(255,255,255,0.85)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:1000}}><i className="ti ti-player-pause" style={{fontSize:48,color:'var(--apt)',marginBottom:8}}/><div style={{color:'var(--apt)',fontWeight:700,fontSize:16}}>GPS Paused</div><div style={{color:'var(--mut)',fontSize:12,marginTop:4}}>Map tracking stopped</div></div>}
       </div>
 
