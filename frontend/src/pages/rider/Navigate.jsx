@@ -26,7 +26,23 @@ export default function RiderNavigate(){
   const[mapMax,setMapMax]=useState(false);   // map fills the whole screen
   const watchRef=useRef(null);const pingRef=useRef(null);const processingRef=useRef(false);const pausedRef=useRef(false);const stopsRef=useRef([]);
 
-  useEffect(()=>{api.getRoute(routeId).then(r=>{setRoute(r);setStops(r.stops||[]);setSavedPath(r.road_path||null);stopsRef.current=r.stops||[];});if(socket)socket.emit('join:route',routeId);return()=>stopGPS();},[routeId]);
+  useEffect(()=>{
+    let alive=true;
+    api.getRoute(routeId).then(r=>{
+      if(!alive)return;
+      const list=r.stops||[];
+      setRoute(r);setStops(list);setSavedPath(r.road_path||null);stopsRef.current=list;
+      // the server keeps the run (route status + delivered stops), so a refresh or coming back to this page picks it up where it was
+      if(r.status==='ongoing'||r.status==='paused'){
+        const next=list.findIndex(s=>!s.delivered);
+        setDelivered(new Set(list.filter(s=>s.delivered).map(s=>s.id)));setNextIdx(next<0?list.length:next);
+        startGPS();
+        if(r.status==='paused'){pausedRef.current=true;setStatus(S.PAUSED);}else setStatus(S.RUNNING);
+      }
+    });
+    if(socket)socket.emit('join:route',routeId);
+    return()=>{alive=false;stopGPS();};
+  },[routeId]);
 
   // leave the full-screen map when the rider has to act on the controls below it (apartment delivery, route done)
   useEffect(()=>{if(waitingApt||status===S.DONE)setMapMax(false);},[waitingApt,status]);
