@@ -2,9 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
 import { TrashIcon, PlusIcon, PinIcon, DELETE_BTN, LOCATE_BTN } from '../../components/RowActions';
-import MapCanvas, { MapFocus, MapFitBounds, CircleMarker, RouteLine } from '../../components/GoogleMapView';
+import MapCanvas, { MapFocus, MapFitBounds, CircleMarker, DotMarker, RouteLine } from '../../components/GoogleMapView';
 import useRoadPath from '../../services/useRoadPath';
 import { MODE_WARNING } from '../../services/roads';
+import useDirections, { directionsUrl } from '../../services/useDirections';
+
+const formatDistance = m => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
 
 // base: '/owner' (route owners). The page is shared, so every link is built from it.
 export default function RouteDetail({ base = '/owner' }) {
@@ -25,6 +28,9 @@ export default function RouteDetail({ base = '/owner' }) {
 
   // draws the already-saved road path (never asks Google for a new one just to view the route)
   const road = useRoadPath({ routeId: id, stops: route?.stops || [], saved: route?.road_path, canSave: false, enabled: Boolean(route?.road_path) });
+
+  // road directions from the owner's current location to the located stop (asked again on every locate click)
+  const directions = useDirections(locateStop, locateNonce);
 
   // scroll the map card into view every time a stop is located (nonce changes even on
   // re-clicking the same stop), so it's visible even if the clicked stop is far below
@@ -182,10 +188,33 @@ export default function RouteDetail({ base = '/owner' }) {
             </div>
             <div style={{ height:260 }}>
               <MapCanvas center={[locateStop.lat, locateStop.lng]} zoom={17}>
-                <MapFocus target={[locateStop.lat, locateStop.lng]} zoom={17} />
+                {directions.origin
+                  ? <MapFitBounds positions={[directions.origin, locateStop]} />
+                  : <MapFocus target={[locateStop.lat, locateStop.lng]} zoom={17} />}
+                {directions.path && (
+                  <RouteLine path={directions.path} color="#4285F4" weight={directions.status === 'ready' ? 5 : 3}
+                    opacity={directions.status === 'ready' ? 0.85 : 0.6} dashed={directions.status !== 'ready'} />
+                )}
+                {directions.origin && <DotMarker position={directions.origin} />}
                 <CircleMarker position={[locateStop.lat, locateStop.lng]} color="#E11D48" size={36} label={<PinIcon size={16} />} />
               </MapCanvas>
             </div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:'8px 14px', fontSize:11.5, color:'var(--mut)' }}>
+              <span style={{ minWidth:0 }}>
+                {directions.status === 'locating' && 'Finding your location…'}
+                {directions.status === 'loading' && 'Loading directions…'}
+                {directions.status === 'ready' && <>Directions from your location · <b style={{ color:'var(--tx)' }}>{formatDistance(directions.meters)}</b></>}
+                {directions.status === 'straight' && 'No road route found, showing a straight line from your location.'}
+                {directions.status === 'no-location' && 'Allow location access to see directions from where you are.'}
+              </span>
+              <a className="btn btn-ghost btn-sm" href={directionsUrl(locateStop)} target="_blank" rel="noopener noreferrer"
+                style={{ flexShrink:0, padding:'4px 8px', fontSize:12, gap:4, textDecoration:'none' }}>
+                <i className="ti ti-navigation" style={{ fontSize:14 }} /> Google Maps
+              </a>
+            </div>
+            {directions.status === 'ready' && MODE_WARNING && (
+              <div style={{ padding:'0 14px 8px', fontSize:10, lineHeight:1.4, color:'var(--mut)' }}>{MODE_WARNING}</div>
+            )}
           </div>
         )}
 
