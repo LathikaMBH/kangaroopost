@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 const INPUT_STYLE = { padding:'9px 12px', fontSize:13, borderRadius:10 };
 const BUTTON_STYLE = { width:'100%', maxWidth:300, alignSelf:'center', padding:'10px 16px', fontSize:14, borderRadius:10 };
@@ -26,13 +27,20 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // a rider who logs back in mid-route goes straight back to that route (the server keeps its progress)
+  const activeRoutePath = async () => {
+    const routes = await api.getRoutes().catch(() => []);
+    const active = routes.find(r => r.status === 'ongoing') || routes.find(r => r.status === 'paused');
+    return active ? `/rider/navigate/${active.id}` : '/rider';
+  };
+
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
       const user = await login(email, password, role);
       if (user.role === 'admin')       navigate('/admin');
       else if (user.role === 'route_owner') navigate('/owner');
-      else navigate('/rider');
+      else navigate(await activeRoutePath());
     } catch (err) { setError(err.error || 'Login failed'); }
     finally { setLoading(false); }
   };

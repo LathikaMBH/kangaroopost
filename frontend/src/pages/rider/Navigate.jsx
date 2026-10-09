@@ -26,7 +26,23 @@ export default function RiderNavigate(){
   const[mapMax,setMapMax]=useState(false);   // map fills the whole screen
   const watchRef=useRef(null);const pingRef=useRef(null);const processingRef=useRef(false);const pausedRef=useRef(false);const stopsRef=useRef([]);
 
-  useEffect(()=>{api.getRoute(routeId).then(r=>{setRoute(r);setStops(r.stops||[]);setSavedPath(r.road_path||null);stopsRef.current=r.stops||[];});if(socket)socket.emit('join:route',routeId);return()=>stopGPS();},[routeId]);
+  useEffect(()=>{
+    let alive=true;
+    api.getRoute(routeId).then(r=>{
+      if(!alive)return;
+      const list=r.stops||[];
+      setRoute(r);setStops(list);setSavedPath(r.road_path||null);stopsRef.current=list;
+      // the server keeps the run (route status + delivered stops), so a refresh or coming back to this page picks it up where it was
+      if(r.status==='ongoing'||r.status==='paused'){
+        const next=list.findIndex(s=>!s.delivered);
+        setDelivered(new Set(list.filter(s=>s.delivered).map(s=>s.id)));setNextIdx(next<0?list.length:next);
+        startGPS();
+        if(r.status==='paused'){pausedRef.current=true;setStatus(S.PAUSED);}else setStatus(S.RUNNING);
+      }
+    });
+    if(socket)socket.emit('join:route',routeId);
+    return()=>{alive=false;stopGPS();};
+  },[routeId]);
 
   // leave the full-screen map when the rider has to act on the controls below it (apartment delivery, route done)
   useEffect(()=>{if(waitingApt||status===S.DONE)setMapMax(false);},[waitingApt,status]);
@@ -66,7 +82,8 @@ export default function RiderNavigate(){
   const handleStart=async()=>{if(status===S.IDLE&&route?.status==='completed'&&!confirm('This route was already completed. Starting it again resets its delivered stops. Start again?'))return;try{await api.startRoute(routeId);}catch(e){alert(e?.error||'Could not start the route');return;}setStatus(S.RUNNING);setDelivered(new Set());setNextIdx(0);setWaitingApt(false);startGPS();};
   const handlePause=async()=>{pausedRef.current=true;await api.pauseRoute(routeId);setStatus(S.PAUSED);showToast('⏸ Route paused — GPS stopped','info');};
   const handleRestart=async()=>{await api.resumeRoute(routeId);setStatus(S.RUNNING);pausedRef.current=false;showToast('▶ Tracking resumed!','mailbox');};
-  const handleEnd=async()=>{stopGPS();await api.endRoute(routeId);navigate('/rider');};
+  const handleExit=()=>navigate('/rider');   // only leaves the page: the run stays on the server and is picked up again on return
+  const handleEnd=async()=>{const left=stops.length-delivered.size;if(!confirm(`End this route now?${left?` ${left} stop${left===1?' is':'s are'} not delivered yet.`:''} The route will be marked completed.`))return;stopGPS();try{await api.endRoute(routeId);}catch(e){alert(e?.error||'Could not end the route');return;}navigate('/rider');};
 
   if(!route)return<div className="spinner" style={{marginTop:80}}/>;
   const totalStops=stops.length,doneCount=delivered.size,pct=totalStops?Math.round(doneCount/totalStops*100):0;
@@ -94,7 +111,7 @@ export default function RiderNavigate(){
   return(
     <div className="screen-full">
       <div style={{padding:'48px 22px 8px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-        <button className="btn btn-ghost btn-sm" onClick={handleEnd}>← Exit</button>
+        <button className="btn btn-ghost btn-sm" onClick={handleExit}>← Exit</button>
         <div style={{textAlign:'center'}}>
           <div style={{color:'var(--pl)',fontSize:12,fontWeight:600}}>{route.name}</div>
           <div style={{fontSize:13,fontWeight:700}}>
@@ -180,6 +197,7 @@ export default function RiderNavigate(){
             <div><div style={{color:'var(--apt)',fontWeight:600,fontSize:14}}>Route paused</div><div style={{color:'var(--mut)',fontSize:12}}>GPS stopped · {doneCount}/{totalStops} delivered</div></div>
           </div>
           <button className="btn btn-green" onClick={handleRestart}><i className="ti ti-player-play" style={{fontSize:20}}/> Restart Tracking</button>
+          <button className="btn btn-danger" style={{width:'100%',marginTop:8,fontSize:14}} onClick={handleEnd}><i className="ti ti-flag-check" style={{fontSize:18}}/> End Route</button>
         </div>}
       </div>
 
