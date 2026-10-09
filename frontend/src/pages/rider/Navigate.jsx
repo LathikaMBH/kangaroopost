@@ -8,6 +8,7 @@ import api from '../../services/api';
 import { getDistance, PROXIMITY_METRES } from '../../services/gps';
 import useRoadPath from '../../services/useRoadPath';
 import { MODE_WARNING } from '../../services/roads';
+import { useApproachPath } from '../../services/useDirections';
 
 
 
@@ -32,6 +33,8 @@ export default function RiderNavigate(){
   useEffect(()=>{if(!mapMax)return;const onKey=e=>{if(e.key==='Escape')setMapMax(false);};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[mapMax]);
 
   const road=useRoadPath({routeId,stops,saved:savedPath,canSave:true});   // roads between the stops (saved path, or asked from Google once)
+  const toFirst=nextIdx===0&&status!==S.IDLE&&status!==S.DONE?stops[0]:null;
+  const approach=useApproachPath(riderPos,toFirst);   // road from the rider to the 1st stop, until it is delivered
 
   const showToast=(msg,type='mailbox')=>{setToast({msg,type,key:Date.now()});setTimeout(()=>setToast(null),3000);};
 
@@ -112,7 +115,7 @@ export default function RiderNavigate(){
           <MapFollow pos={riderPos} follow={status===S.RUNNING}/>
           <RouteLine path={doneLine} color="#1C9A54" weight={5} opacity={0.85}/>
           <RouteLine path={remLine} color="#4285F4" weight={road.legs?4:3} opacity={road.legs?0.6:0.3} dashed={!road.legs}/>
-          {nextIdx===0&&riderPos&&stops[0]&&status===S.RUNNING&&<RouteLine path={[riderPos,[stops[0].lat,stops[0].lng]]} color="#4285F4" weight={3} opacity={0.5} dashed/>}
+          {status===S.RUNNING&&approach.path&&<RouteLine path={approach.path} color="#4285F4" weight={approach.status==='ready'?5:3} opacity={approach.status==='ready'?0.85:0.5} dashed={approach.status!=='ready'}/>}
           {nextStop&&status===S.RUNNING&&!waitingApt&&nextStop.type==='mailbox'&&<RadiusCircle center={[nextStop.lat,nextStop.lng]} radius={PROXIMITY_METRES} color="#4285F4"/>}
           {stops.map((s,i)=>{const isDone=delivered.has(s.id);const isCurr=i===nextIdx&&status!==S.IDLE;const color=isDone?'#1C9A54':isCurr?(s.type==='apartment'?'#B5720A':'#4285F4'):'#888';return<CircleMarker key={s.id} position={[s.lat,s.lng]} color={color} label={isDone?'✓':i+1} size={isCurr?36:28} onClick={()=>setOpenId(s.id)}/>;})}
           {openStop&&<InfoWindow position={{lat:openStop.lat,lng:openStop.lng}} pixelOffset={[0,-18]} onCloseClick={()=>setOpenId(null)}><div style={{color:'#222',fontSize:13}}>{openStop.address}<br/><small>{openStop.type}</small></div></InfoWindow>}
@@ -185,7 +188,7 @@ export default function RiderNavigate(){
         <span>{isPaused?'Press Restart to resume GPS and continue tracking':<><strong style={{color:'var(--grn)'}}>Mailboxes</strong> auto {PROXIMITY_METRES}m · <strong style={{color:'var(--apt)'}}>Apartments</strong> tap</>}</span>
       </div>
 
-      {road.legs&&MODE_WARNING&&<div style={{margin:'6px 22px 0',fontSize:10,lineHeight:1.4,color:'var(--mut)',flexShrink:0}}>{MODE_WARNING}</div>}
+      {(road.legs||approach.status==='ready')&&MODE_WARNING&&<div style={{margin:'6px 22px 0',fontSize:10,lineHeight:1.4,color:'var(--mut)',flexShrink:0}}>{MODE_WARNING}</div>}
 
       {toast&&<div key={toast.key} className={`toast${toast.type==='apartment'||toast.type==='info'?' apt':''}`}>{toast.msg}</div>}
     </div>
