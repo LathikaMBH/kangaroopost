@@ -16,14 +16,17 @@ const loginLimiter = rateLimit({
 // The roles an account may sign in as. Admin signs in only as admin; a route owner may also sign in as a rider when
 // admin gave them the Rider role.
 const rolesOf = user => user.role === 'route_owner' && user.can_ride ? ['route_owner', 'rider'] : [user.role];
+// compared against when the email has no account, so that case takes as long as a wrong password
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 const ROLE_NAMES = { admin: 'Admin', route_owner: 'Route owner', rider: 'Rider' };
 
 router.post('/login', loginLimiter, wrap(async (req, res) => {
   const { email, password, role } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   const user = await queries.getUserByEmail(email.toLowerCase().trim());
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-  if (!bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
+  // One message, and a hash check either way, so a response never reveals whether an email is registered (KAN-21)
+  const ok = bcrypt.compareSync(password, user ? user.password_hash : DUMMY_HASH);
+  if (!user || !ok) return res.status(401).json({ error: 'Email or password is incorrect' });
 
   // Non-admins must choose a role, so an account with both roles never silently signs in as owner (KAN-20).
   // Admin may still omit it.
