@@ -24,6 +24,7 @@ export default function RiderNavigate(){
   const[openId,setOpenId]=useState(null);
   const[savedPath,setSavedPath]=useState(null);
   const[mapMax,setMapMax]=useState(false);   // map fills the whole screen
+  const[askStart,setAskStart]=useState(false);const[starting,setStarting]=useState(false);const[now,setNow]=useState(()=>new Date());   // start-route confirmation (KAN-4)
   const watchRef=useRef(null);const pingRef=useRef(null);const processingRef=useRef(false);const pausedRef=useRef(false);const stopsRef=useRef([]);
 
   useEffect(()=>{
@@ -46,6 +47,8 @@ export default function RiderNavigate(){
 
   // leave the full-screen map when the rider has to act on the controls below it (apartment delivery, route done)
   useEffect(()=>{if(waitingApt||status===S.DONE)setMapMax(false);},[waitingApt,status]);
+  // keep the date and time in the start confirmation current while it is open
+  useEffect(()=>{if(!askStart)return;setNow(new Date());const t=setInterval(()=>setNow(new Date()),1000);const onKey=e=>{if(e.key==='Escape')setAskStart(false);};window.addEventListener('keydown',onKey);return()=>{clearInterval(t);window.removeEventListener('keydown',onKey);};},[askStart]);
   useEffect(()=>{if(!mapMax)return;const onKey=e=>{if(e.key==='Escape')setMapMax(false);};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[mapMax]);
 
   const road=useRoadPath({routeId,stops,saved:savedPath,canSave:true});   // roads between the stops (saved path, or asked from Google once)
@@ -79,7 +82,8 @@ export default function RiderNavigate(){
 
   const stopGPS=()=>{if(watchRef.current){navigator.geolocation?.clearWatch(watchRef.current);watchRef.current=null;}if(pingRef.current){clearInterval(pingRef.current);pingRef.current=null;}};
 
-  const handleStart=async()=>{if(status===S.IDLE&&route?.status==='completed'&&!confirm('This route was already completed. Starting it again resets its delivered stops. Start again?'))return;try{await api.startRoute(routeId);}catch(e){alert(e?.error||'Could not start the route');return;}setStatus(S.RUNNING);setDelivered(new Set());setNextIdx(0);setWaitingApt(false);startGPS();};
+  const handleStart=()=>setAskStart(true);   // the rider confirms the date and start time first
+  const confirmStart=async()=>{if(starting)return;setStarting(true);try{await api.startRoute(routeId);}catch(e){alert(e?.error||'Could not start the route');return;}finally{setStarting(false);}setAskStart(false);setStatus(S.RUNNING);setDelivered(new Set());setNextIdx(0);setWaitingApt(false);startGPS();};
   const handlePause=async()=>{pausedRef.current=true;await api.pauseRoute(routeId);setStatus(S.PAUSED);showToast('⏸ Route paused — GPS stopped','info');};
   const handleRestart=async()=>{await api.resumeRoute(routeId);setStatus(S.RUNNING);pausedRef.current=false;showToast('▶ Tracking resumed!','mailbox');};
   const handleExit=()=>navigate('/rider');   // only leaves the page: the run stays on the server and is picked up again on return
@@ -93,6 +97,24 @@ export default function RiderNavigate(){
   const remLine=road.legs?road.legs.slice(nextIdx).flat():straight(nextIdx);
   const isPaused=status===S.PAUSED;
   const openStop=stops.find(s=>s.id===openId);
+  const restarting=status===S.DONE||route.status==='completed';
+
+  const startDialog=askStart&&(
+    <div onClick={()=>!starting&&setAskStart(false)} style={{position:'fixed',inset:0,zIndex:3000,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
+      <div role="dialog" aria-modal="true" aria-labelledby="start-title" onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:'var(--card)',borderRadius:20,padding:'22px 20px 18px',boxShadow:'0 10px 30px rgba(0,0,0,0.3)',textAlign:'center'}}>
+        <i className="ti ti-player-play" style={{fontSize:36,color:'var(--grn)'}}/>
+        <h3 id="start-title" style={{margin:'6px 0 2px'}}>{restarting?'Start this route again?':'Start this route?'}</h3>
+        <div style={{color:'var(--pl)',fontSize:13,fontWeight:600}}>{route.name}</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,margin:'16px 0'}}>
+          <div className="stat-card"><i className="ti ti-calendar" style={{fontSize:20,color:'var(--grn)'}}/><div style={{color:'var(--mut)',fontSize:11,marginTop:4}}>Date</div><div style={{fontSize:14,fontWeight:700}}>{now.toLocaleDateString('en-FI',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</div></div>
+          <div className="stat-card"><i className="ti ti-clock" style={{fontSize:20,color:'var(--grn)'}}/><div style={{color:'var(--mut)',fontSize:11,marginTop:4}}>Start time</div><div style={{fontSize:14,fontWeight:700}}>{now.toLocaleTimeString('en-FI',{hour:'2-digit',minute:'2-digit'})}</div></div>
+        </div>
+        {restarting&&<p style={{fontSize:12,color:'var(--apt)',margin:'0 0 12px'}}>This route was already completed. Starting it again resets its delivered stops.</p>}
+        <button className="btn btn-green" disabled={starting} onClick={confirmStart}><i className="ti ti-check" style={{fontSize:18}}/> {starting?'Starting…':'Confirm'}</button>
+        <button className="btn btn-ghost" style={{width:'100%',marginTop:8}} disabled={starting} onClick={()=>setAskStart(false)}>Cancel</button>
+      </div>
+    </div>
+  );
 
   if(status===S.DONE)return(
     <div className="screen" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'0 24px 60px',textAlign:'center'}}>
@@ -105,6 +127,7 @@ export default function RiderNavigate(){
       </div>
       <button className="btn btn-green" style={{marginBottom:10}} onClick={handleStart}><i className="ti ti-refresh" style={{fontSize:18}}/> Start Again</button>
       <button className="btn btn-primary" onClick={()=>navigate('/rider')}>Back to Dashboard</button>
+      {startDialog}
     </div>
   );
 
@@ -208,6 +231,7 @@ export default function RiderNavigate(){
 
       {(road.legs||approach.status==='ready')&&MODE_WARNING&&<div style={{margin:'6px 22px 0',fontSize:10,lineHeight:1.4,color:'var(--mut)',flexShrink:0}}>{MODE_WARNING}</div>}
 
+      {startDialog}
       {toast&&<div key={toast.key} className={`toast${toast.type==='apartment'||toast.type==='info'?' apt':''}`}>{toast.msg}</div>}
     </div>
   );
