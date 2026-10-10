@@ -109,7 +109,6 @@ export default function RiderNavigate(){
           <div className="stat-card"><i className="ti ti-calendar" style={{fontSize:20,color:'var(--grn)'}}/><div style={{color:'var(--mut)',fontSize:11,marginTop:4}}>Date</div><div style={{fontSize:14,fontWeight:700}}>{now.toLocaleDateString('en-FI',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</div></div>
           <div className="stat-card"><i className="ti ti-clock" style={{fontSize:20,color:'var(--grn)'}}/><div style={{color:'var(--mut)',fontSize:11,marginTop:4}}>Start time</div><div style={{fontSize:14,fontWeight:700}}>{now.toLocaleTimeString('en-FI',{hour:'2-digit',minute:'2-digit'})}</div></div>
         </div>
-        {restarting&&<p style={{fontSize:12,color:'var(--apt)',margin:'0 0 12px'}}>This route was already completed. Starting it again resets its delivered stops.</p>}
         <button className="btn btn-green" disabled={starting} onClick={confirmStart}><i className="ti ti-check" style={{fontSize:18}}/> {starting?'Starting…':'Confirm'}</button>
         <button className="btn btn-ghost" style={{width:'100%',marginTop:8}} disabled={starting} onClick={()=>setAskStart(false)}>Cancel</button>
       </div>
