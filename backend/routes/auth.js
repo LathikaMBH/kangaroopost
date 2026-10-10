@@ -13,10 +13,10 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many failed sign-in attempts. Try again in 15 minutes.' },
 });
 
-// The roles an account may sign in as. Admin has no choice (the role field is ignored); a route owner may also sign in
-// as a rider when admin gave them the Rider role.
+// The roles an account may sign in as. Admin signs in only as admin; a route owner may also sign in as a rider when
+// admin gave them the Rider role.
 const rolesOf = user => user.role === 'route_owner' && user.can_ride ? ['route_owner', 'rider'] : [user.role];
-const ROLE_NAMES = { route_owner: 'Route owner', rider: 'Rider' };
+const ROLE_NAMES = { admin: 'Admin', route_owner: 'Route owner', rider: 'Rider' };
 
 router.post('/login', loginLimiter, wrap(async (req, res) => {
   const { email, password, role } = req.body;
@@ -25,12 +25,11 @@ router.post('/login', loginLimiter, wrap(async (req, res) => {
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   if (!bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
 
-  // no role chosen: the account's own role
-  let actAs = user.role;
-  if (user.role !== 'admin' && role) {
-    if (!rolesOf(user).includes(role)) return res.status(403).json({ error: `This account does not have the ${ROLE_NAMES[role] || role} role` });
-    actAs = role;
-  }
+  // Non-admins must choose a role, so an account with both roles never silently signs in as owner (KAN-20).
+  // Admin may still omit it.
+  if (!role && user.role !== 'admin') return res.status(400).json({ error: 'Please select role' });
+  if (role && !rolesOf(user).includes(role)) return res.status(403).json({ error: `This account does not have the ${ROLE_NAMES[role] || role} role` });
+  const actAs = role || user.role;
   // A route owner riding gets the rider views, over all the routes they own (see access.js)
   const acting_owner = user.role === 'route_owner' && actAs === 'rider';
   const owner_id = acting_owner ? user.id : user.owner_id;

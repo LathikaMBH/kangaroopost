@@ -35,7 +35,9 @@ export default function Login() {
   };
 
   const handleSubmit = async e => {
-    e.preventDefault(); setError(''); setLoading(true);
+    e.preventDefault(); setError('');
+    if (!role) { setError('Please select role'); return; }
+    setLoading(true);
     try {
       const user = await login(email, password, role);
       if (user.role === 'admin')       navigate('/admin');
@@ -65,7 +67,8 @@ export default function Login() {
         <div className="field" style={FIELD_STYLE}>
           <label className="label">Role</label>
           <select className="input" style={INPUT_STYLE} value={role} onChange={e=>setRole(e.target.value)}>
-            <option value="">Select role (not needed for admin)</option>
+            <option value="">Select role</option>
+            <option value="admin">Admin</option>
             <option value="route_owner">Route owner</option>
             <option value="rider">Rider</option>
           </select>
