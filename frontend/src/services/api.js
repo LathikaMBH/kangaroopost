@@ -6,7 +6,9 @@ api.interceptors.request.use(cfg => {
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
   return cfg;
 });
-api.interceptors.response.use(r => r.data, e => Promise.reject(e.response?.data || e));
+// no response at all (offline / server unreachable): give callers a readable { error } like server errors (KAN-22)
+const NETWORK_ERROR = "Can't reach the server. Check your connection and try again.";
+api.interceptors.response.use(r => r.data, e => Promise.reject(e.response?.data || (e.code === 'ERR_NETWORK' ? { error: NETWORK_ERROR, network: true } : e)));
 
 export default {
   login:         (d)        => api.post('/auth/login', d),
