@@ -10,7 +10,18 @@ api.interceptors.request.use(cfg => {
 });
 // no response at all (offline / server unreachable): give callers a readable { error } like server errors (KAN-22)
 const NETWORK_ERROR = "Can't reach the server. Check your connection and try again.";
-api.interceptors.response.use(r => r.data, e => Promise.reject(e.response?.data || (e.code === 'ERR_NETWORK' ? { error: NETWORK_ERROR, network: true } : e)));
+// a 401 on a signed-in request means the token expired or is invalid: drop the session and go back to login (KAN-26).
+// Not for /auth/login itself, where 401 is just a wrong email or password.
+const signOutExpired = e => {
+  if (e.response?.status !== 401 || !e.config?.headers?.Authorization || e.config.url === '/auth/login') return;
+  localStorage.removeItem('kp_token');
+  localStorage.removeItem('kp_user');
+  if (window.location.pathname !== '/login') window.location.replace('/login');
+};
+api.interceptors.response.use(r => r.data, e => {
+  signOutExpired(e);
+  return Promise.reject(e.response?.data || (e.code === 'ERR_NETWORK' ? { error: NETWORK_ERROR, network: true } : e));
+});
 
 export default {
   login:         (d)        => api.post('/auth/login', d),
