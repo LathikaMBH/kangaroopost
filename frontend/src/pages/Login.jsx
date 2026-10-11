@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -19,13 +19,20 @@ const LOGO = () => (
 );
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // already signed in: go to the dashboard (skipped mid-submit so handleSubmit can pick the rider's active route)
+  if (authLoading) return null;
+  if (user && !loading) {
+    const home = user.role==='admin' ? '/admin' : user.role==='route_owner' ? '/owner' : '/rider';
+    return <Navigate to={home} replace />;
+  }
 
   // a rider who logs back in mid-route goes straight back to that route (the server keeps its progress)
   const activeRoutePath = async () => {

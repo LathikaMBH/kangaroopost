@@ -1,0 +1,11 @@
+{
+  "name": "kangaroopost-tests",
+  "private": true,
+  "description": "Test-only dependencies. Not installed by the root postinstall, so production installs stay clean.",
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
