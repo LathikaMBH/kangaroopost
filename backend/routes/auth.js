@@ -22,7 +22,8 @@ const ROLE_NAMES = { admin: 'Admin', route_owner: 'Route owner', rider: 'Rider' 
 
 router.post('/login', loginLimiter, wrap(async (req, res) => {
   const { email, password, role } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  // non-strings (e.g. { email: 123 }) would crash .toLowerCase()/bcrypt with a 500 (KAN-27)
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) return res.status(400).json({ error: 'Email and password required' });
   const user = await queries.getUserByEmail(email.toLowerCase().trim());
   // One message, and a hash check either way, so a response never reveals whether an email is registered (KAN-21)
   const ok = bcrypt.compareSync(password, user ? user.password_hash : DUMMY_HASH);
