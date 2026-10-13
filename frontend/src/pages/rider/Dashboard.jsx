@@ -130,8 +130,8 @@ export default function RiderDashboard() {
               </div>
             )}
             <button className="btn btn-green" onClick={() => navigate(`/rider/navigate/${r.id}`)}>
-              <i className={`ti ${r.status === 'completed' ? 'ti-refresh' : 'ti-player-play'}`} style={{ fontSize:18 }} />
-              {r.status === 'ongoing' || r.status === 'paused' ? 'Continue Route' : r.status === 'completed' ? 'Start Again' : 'Start Route'}
+              <i className="ti ti-player-play" style={{ fontSize:18 }} />
+              {r.status === 'ongoing' || r.status === 'paused' ? 'Continue Route' : 'Start Route'}
             </button>
           </div>
         );

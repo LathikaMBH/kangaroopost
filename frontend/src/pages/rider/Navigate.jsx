@@ -163,7 +163,7 @@ export default function RiderNavigate(){
           <div key={l} className="stat-card"><i className={`ti ${ic}`} style={{fontSize:22,color:c,display:'block',marginBottom:6}}/><div style={{fontSize:22,fontWeight:700,color:c}}>{v}</div><div style={{color:'var(--mut)',fontSize:11}}>{l}</div></div>
         ))}
       </div>
-      <button className="btn btn-green" style={{marginBottom:10}} onClick={handleStart}><i className="ti ti-refresh" style={{fontSize:18}}/> Start Again</button>
+      <button className="btn btn-green" style={{marginBottom:10}} onClick={handleStart}><i className="ti ti-player-play" style={{fontSize:18}}/> Start Route</button>
       <button className="btn btn-primary" onClick={()=>navigate('/rider')}>Back to Dashboard</button>
       {startDialog}
     </div>
