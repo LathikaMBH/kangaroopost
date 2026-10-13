@@ -62,6 +62,8 @@ export default {
   pauseRoute:    (id)       => api.post(`/delivery/pause/${id}`),
   resumeRoute:   (id)       => api.post(`/delivery/resume/${id}`),
   deliverStop:   (id, m)    => api.post(`/delivery/stop/${id}`, { method: m }),
+  reachedStop:   (id)       => api.post(`/delivery/reached/${id}`),    // earlier undelivered stops become missed
+  completeRoute: (id)       => api.post(`/delivery/complete/${id}`),   // { route, progress: { delivered, total, pct, missed } }
   endRoute:      (id)       => api.post(`/delivery/end/${id}`),
   pingLocation:  (d)        => api.post('/delivery/ping', d),
   // Missed-delivery complaints
