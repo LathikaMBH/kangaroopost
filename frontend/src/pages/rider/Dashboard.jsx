@@ -124,11 +124,6 @@ export default function RiderDashboard() {
               </div>
             )}
 
-            {r.status === 'completed' && (
-              <div style={{ background:'var(--grn-tint)', borderRadius:12, padding:'12px 16px', color:'var(--grn)', fontWeight:600, textAlign:'center', marginBottom:10 }}>
-                <i className="ti ti-circle-check" /> Route Complete!
-              </div>
-            )}
             <button className="btn btn-green" onClick={() => navigate(`/rider/navigate/${r.id}`)}>
               <i className={`ti ${r.status === 'completed' ? 'ti-refresh' : 'ti-player-play'}`} style={{ fontSize:18 }} />
               {r.status === 'ongoing' || r.status === 'paused' ? 'Continue Route' : r.status === 'completed' ? 'Start Again' : 'Start Route'}
