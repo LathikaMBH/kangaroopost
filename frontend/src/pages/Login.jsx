@@ -59,7 +59,7 @@ export default function Login() {
     <div style={{ minHeight:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px 24px 40px' }}>
       <div style={{ textAlign:'center', marginBottom:32 }}>
         <LOGO />
-        <h1 style={{ marginTop:16 }}>KangarooPost</h1>
+        <h1 style={{ marginTop:16 }}>Kangodrop</h1>
         <p style={{ marginTop:6 }}>Precision delivery, every street</p>
       </div>
       <form onSubmit={handleSubmit} style={{ width:'100%', display:'flex', flexDirection:'column', gap:14 }}>

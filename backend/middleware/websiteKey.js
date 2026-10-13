@@ -1,4 +1,4 @@
-// Requests from the Kangarooposti website's server: they carry the shared key (WEBSITE_API_KEY) in X-Api-Key.
+// Requests from the Kangodrop website's server: they carry the shared key (WEBSITE_API_KEY) in X-Api-Key.
 const crypto = require('crypto');
 const { WEBSITE_API_KEY } = require('../config');
 

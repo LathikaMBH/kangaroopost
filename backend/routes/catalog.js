@@ -1,4 +1,4 @@
-// Read-only route catalog for the Kangarooposti website: region -> city -> route, and a route's road line.
+// Read-only route catalog for the Kangodrop website: region -> city -> route, and a route's road line.
 // Only the website's server calls this, with the shared key in the X-Api-Key header (WEBSITE_API_KEY).
 //
 // Customers must never see stop pins, addresses, riders, owners or delivery state, so the answers only carry

@@ -76,7 +76,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 4000;
 init().then(() => {
   server.listen(PORT, () => {
-    console.log(`\n🚀 KangarooPost backend running on http://localhost:${PORT}`);
+    console.log(`\n🚀 Kangodrop backend running on http://localhost:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
   });
 }).catch(err => {

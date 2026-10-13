@@ -1,7 +1,7 @@
 #!/bin/bash
-# KangarooPost — start both backend and frontend
+# Kangodrop — start both backend and frontend
 
-echo "🚀 Starting KangarooPost..."
+echo "🚀 Starting Kangodrop..."
 
 # Install backend deps if needed
 if [ ! -d "backend/node_modules" ]; then
