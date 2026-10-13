@@ -1,4 +1,4 @@
-// Admin reports for the Kangarooposti website. Only the website's server calls this (X-Api-Key); the website
+// Admin reports for the Kangodrop website. Only the website's server calls this (X-Api-Key); the website
 // checks the visitor is the admin before asking. The reports themselves live in ../reports/index.js.
 const router = require('express').Router();
 const wrap = require('../middleware/async');

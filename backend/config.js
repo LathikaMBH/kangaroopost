@@ -21,7 +21,7 @@ let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 if (!ADMIN_PASSWORD && !isProd) ADMIN_PASSWORD = 'admin123'; // local development only
 if (ADMIN_PASSWORD && isProd && ADMIN_PASSWORD.length < 10) throw new Error('ADMIN_PASSWORD must be at least 10 characters in production');
 
-// ── Key the Kangarooposti website's server uses (route catalog, admin sign-in) ──
+// ── Key the Kangodrop website's server uses (route catalog, admin sign-in) ──
 // Not set: the website connection is switched off. Generate one the same way as JWT_SECRET; the website's .env gets
 // the same value as PAPERTRAIL_API_KEY.
 const WEBSITE_API_KEY = process.env.WEBSITE_API_KEY || '';

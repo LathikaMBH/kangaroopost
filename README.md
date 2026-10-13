@@ -1,9 +1,9 @@
-# KangarooPost 🗺️
+# Kangodrop 🗺️
 ### GPS-Powered Delivery Route Tracking Platform
 
 [![License](https://img.shields.io/badge/License-Private-red?style=flat-square)]()
 
-KangarooPost is a full-stack Progressive Web App (PWA) for managing and tracking newspaper and parcel delivery routes. It uses real GPS auto-detection so riders are tracked automatically — no manual tapping required.
+Kangodrop is a full-stack Progressive Web App (PWA) for managing and tracking newspaper and parcel delivery routes. It uses real GPS auto-detection so riders are tracked automatically — no manual tapping required.
 
 > **Built with Claude AI** — This product was designed and developed using Claude AI (Anthropic) as an AI pair-programmer, from architecture and database design through to production deployment.
 
@@ -22,7 +22,7 @@ KangarooPost is a full-stack Progressive Web App (PWA) for managing and tracking
 
 ## 👥 User Roles
 
-KangarooPost has three distinct user roles:
+Kangodrop has three distinct user roles:
 
 ### 👑 Admin
 - Creates and manages Route Owner accounts (name, city, phone, email, password)
@@ -166,7 +166,7 @@ You should see:
 ```
 ✅ Database schema ready
 ✅ Seed: admin@kangarooposti.com / admin123
-🚀 KangarooPost backend running on http://localhost:4000
+🚀 Kangodrop backend running on http://localhost:4000
 ```
 
 The tables are created automatically on startup. If it can't reach the database it prints
@@ -393,7 +393,7 @@ Then **Variables** (Railway supplies `PORT` itself):
 | `ADMIN_EMAIL` | first admin's email (used on the first start only) |
 | `ADMIN_PASSWORD` | first admin's password, 10+ characters (first start only). **Not** `admin123` |
 | `PG_SSL` | `true` only if you use the database's *public* URL from outside Railway |
-| `WEBSITE_API_KEY` | optional, 32+ random characters: lets the Kangarooposti website's server read the route catalog and sign the admin in. The website gets the same value as `PAPERTRAIL_API_KEY` |
+| `WEBSITE_API_KEY` | optional, 32+ random characters: lets the Kangodrop website's server read the route catalog and sign the admin in. The website gets the same value as `PAPERTRAIL_API_KEY` |
 
 If a required value is missing the service stops at startup and the deploy log says exactly which one.
 `ADMIN_EMAIL`/`ADMIN_PASSWORD` are only used to create the first admin; afterwards change the password in the app
@@ -498,4 +498,4 @@ improvement/rider-dashboard-ui
 
 ---
 
-*KangarooPost — Precision delivery, every street* 🗺️
+*Kangodrop — Precision delivery, every street* 🗺️
