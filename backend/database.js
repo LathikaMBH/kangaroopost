@@ -113,6 +113,11 @@ UPDATE routes SET city_id = (SELECT id FROM cities ORDER BY id LIMIT 1) WHERE ci
 UPDATE routes SET created_by = owner_id WHERE created_by IS NULL AND owner_id IN (SELECT id FROM users);
 ALTER TABLE routes ALTER COLUMN city_id SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_routes_city ON routes(city_id);
+
+-- a stop the rider passed: a later stop in the saved order was reached while this one was not delivered (KAN-28).
+-- Delivering it later clears the mark; starting the route again clears it too.
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS missed    BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS missed_at TIMESTAMPTZ;
 `;
 
 async function init() {
@@ -316,13 +321,23 @@ const queries = {
 
   deleteStop: (id) => q('DELETE FROM stops WHERE id = $1', [Number(id)]),
 
-  deliverStop: (method, id) => one(
-    'UPDATE stops SET delivered = true, delivered_at = now(), delivered_method = $1 WHERE id = $2 RETURNING *',
+  // a missed stop delivered later turns delivered (and no longer missed); delivering twice keeps the first delivery
+  deliverStop: async (method, id) => (await one(
+    'UPDATE stops SET delivered = true, delivered_at = now(), delivered_method = $1, missed = false, missed_at = NULL WHERE id = $2 AND NOT delivered RETURNING *',
     [method, Number(id)]
-  ),
+  )) || queries.getStopById(id),
+
+  // The rider reached `stop_id`: every earlier stop of its route (saved order) that is neither delivered nor already
+  // missed becomes missed. A delivered stop is never marked (checked in the same statement). Returns the newly missed.
+  markMissedBefore: (stop_id) => many(`
+    UPDATE stops s SET missed = true, missed_at = now()
+    FROM stops r
+    WHERE r.id = $1 AND s.route_id = r.route_id AND (s.order_num, s.id) < (r.order_num, r.id)
+      AND NOT s.delivered AND NOT s.missed
+    RETURNING s.*`, [Number(stop_id)]),
 
   resetStops: (route_id) => q(
-    'UPDATE stops SET delivered = false, delivered_at = NULL, delivered_method = NULL WHERE route_id = $1',
+    'UPDATE stops SET delivered = false, delivered_at = NULL, delivered_method = NULL, missed = false, missed_at = NULL WHERE route_id = $1',
     [Number(route_id)]
   ),
 

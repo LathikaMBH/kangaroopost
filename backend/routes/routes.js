@@ -2,7 +2,10 @@ const router = require('express').Router();
 const wrap = require('../middleware/async');
 const { queries } = require('../database');
 const { auth, ownerOrAdmin } = require('../middleware/auth');
-const { canView, canManage, loadRoute, checkRiderForRoute } = require('../middleware/access');
+const { canView, canManage, canRide, loadRoute, checkRiderForRoute } = require('../middleware/access');
+
+// Missed stops are the rider's own work record (KAN-28): only the route's rider gets them; the owner and admin see progress only
+const stopsFor = (user, route, stops) => canRide(user, route) ? stops : stops.map(({ missed, missed_at, ...s }) => s);
 
 // List: each role only ever gets its own routes
 router.get('/', auth, wrap(async (req, res) => {
@@ -15,7 +18,7 @@ router.get('/', auth, wrap(async (req, res) => {
 router.get('/:id', auth, wrap(async (req, res) => {
   const route = await loadRoute(req, res, req.params.id, canView);
   if (!route) return;
-  res.json({ ...route, stops: await queries.getStopsByRoute(route.id), road_path: await queries.getRoadPath(route.id) });
+  res.json({ ...route, stops: stopsFor(req.user, route, await queries.getStopsByRoute(route.id)), road_path: await queries.getRoadPath(route.id) });
 }));
 
 // Every route is in a city (region -> city -> route). Sends 400 itself and returns null when the city is missing/unknown.
@@ -99,7 +102,7 @@ router.put('/:id/road-path', auth, wrap(async (req, res) => {
 router.get('/:id/stops', auth, wrap(async (req, res) => {
   const route = await loadRoute(req, res, req.params.id, canView);
   if (!route) return;
-  res.json(await queries.getStopsByRoute(route.id));
+  res.json(stopsFor(req.user, route, await queries.getStopsByRoute(route.id)));
 }));
 
 router.post('/:id/stops', auth, ownerOrAdmin, wrap(async (req, res) => {
