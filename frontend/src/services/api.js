@@ -1,7 +1,7 @@
 import axios from 'axios';
-// Production: VITE_API_URL is the backend's public address (set at build time). Development: empty, the Vite proxy handles /api.
+// VITE_API_URL is the backend's public address, set at build time when the screens are hosted elsewhere (Netlify).
+// Empty: the API is on the same address (served by the backend on Railway, or the Vite proxy in development).
 const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-if (import.meta.env.PROD && !API_URL) console.error('VITE_API_URL is not set: the app cannot reach the backend');
 const api = axios.create({ baseURL: `${API_URL}/api` });
 api.interceptors.request.use(cfg => {
   const t = localStorage.getItem('kp_token');

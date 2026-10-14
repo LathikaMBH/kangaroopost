@@ -4,6 +4,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const { CORS_ORIGINS, JWT_SECRET } = require('./config');
 const { init, queries } = require('./database');
@@ -18,7 +20,9 @@ const io = new Server(server, {
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.set('trust proxy', 1); // behind Railway's proxy: use the real client IP (rate limiting)
-app.use(helmet());
+// No CSP: the screens load Google Maps scripts and inline styles (the API only returns JSON).
+// The referrer must reach Google, whose Maps key is restricted to the app's addresses.
+app.use(helmet({ contentSecurityPolicy: false, referrerPolicy: { policy: 'strict-origin-when-cross-origin' } }));
 app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '1mb' })); // a long route's road path is a few hundred KB at most
 
@@ -38,6 +42,25 @@ app.use('/api/website',  require('./routes/website'));   // the website's server
 app.use('/api/reports',  require('./routes/reports'));   // the website's server only (X-Api-Key), for its admin
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+
+// ── Screens (frontend/dist) ───────────────────────────────────────────────────
+// When the frontend has been built (Railway runs the root `npm run build`), this server also serves it, so the app
+// and its API share one address. Hashed files in /assets never change; everything else (index.html, the service
+// worker, the manifest) must be checked on every load so new versions arrive.
+const DIST = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(path.join(DIST, 'index.html'))) {
+  app.use(express.static(DIST, {
+    index: false,
+    setHeaders: (res, file) => res.setHeader('Cache-Control',
+      file.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache')
+  }));
+  // single-page app: any other page address gets index.html (unknown /api addresses still get a 404 below)
+  app.get(/^\/(?!api\/|api$|socket\.io\/).*/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(DIST, 'index.html'));
+  });
+}
+app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 
 // Any error thrown/rejected in a route handler ends up here
 app.use((err, _req, res, _next) => {

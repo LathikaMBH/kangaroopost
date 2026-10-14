@@ -367,6 +367,12 @@ The schema is created automatically by `backend/database.js` on startup (`CREATE
 Production layout: **Netlify** (frontend) → **Railway** service (backend) → **Railway PostgreSQL**.
 The browser talks to the backend directly, using the address in `VITE_API_URL`.
 
+**Without Netlify:** the Railway service can serve the screens itself. With the Root Directory left empty, Railway
+runs the root `npm run build` (builds `frontend/`), and the backend serves `frontend/dist` on its own address, so
+the app and the API share one address. Then leave `VITE_API_URL` unset and add `VITE_GOOGLE_MAPS_API_KEY` and
+`VITE_GOOGLE_MAPS_MAP_ID` to the Railway service's variables (used at build time). Add that address to the Maps
+key's HTTP referrers. `CORS_ORIGINS` is then only needed for other sites.
+
 > ⚠️ **Order matters.** The backend refuses to start without the settings below (by design — it will not
 > run in production with a default password or secret). Create the database and set the variables
 > **before** the first deploy, because Railway deploys automatically when you push to the linked branch.
