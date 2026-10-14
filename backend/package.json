@@ -1,7 +1,7 @@
 {
-  "name": "kangaroopost-backend",
+  "name": "kangodrop-backend",
   "version": "1.0.0",
-  "description": "KangarooPost delivery route tracking backend",
+  "description": "Kangodrop delivery route tracking backend",
   "main": "server.js",
   "engines": { "node": ">=18" },
   "scripts": {

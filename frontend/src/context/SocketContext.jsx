@@ -11,8 +11,8 @@ export function SocketProvider({ children }) {
 
   useEffect(() => {
     if (!user) { socketRef.current?.disconnect(); return; }
-    // Netlify redirects cannot carry WebSockets, so in production connect directly to the API host (VITE_API_URL).
-    // In development the Vite proxy handles it on the same origin.
+    // Screens on Netlify connect directly to the API host (VITE_API_URL): Netlify redirects cannot carry WebSockets.
+    // Served by the backend itself (Railway), or in development through the Vite proxy, it is the same origin.
     const url = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '');
     const s = io(url, {
       path: '/socket.io',

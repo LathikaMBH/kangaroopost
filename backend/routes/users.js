@@ -3,15 +3,7 @@ const wrap = require('../middleware/async');
 const bcrypt = require('bcryptjs');
 const { queries } = require('../database');
 const { auth, adminOnly, ownerOrAdmin } = require('../middleware/auth');
-
-// Phone numbers are stored in international form: "+<country code><number>" (e.g. +358401234567).
-// Spaces, dashes and brackets are stripped. Returns '' for empty, or null if the value is not valid.
-const PHONE_ERROR = 'Enter the phone number with a country code, e.g. +358 40 123 4567';
-const normalizePhone = p => {
-  const s = String(p ?? '').replace(/[\s\-().]/g, '');
-  if (s === '') return '';
-  return /^\+[1-9]\d{6,14}$/.test(s) ? s : null;
-};
+const { PHONE_ERROR, normalizePhone, createOwner } = require('../lib/owners');
 
 // Shared by owner and rider profile edits. Trims, lower-cases the email (exactly how /auth/login looks it up,
 // so the new email works for sign-in) and validates. Returns { data } or { error }.
@@ -47,19 +39,9 @@ router.get('/owners', auth, adminOnly, wrap(async (req, res) => res.json(await q
 
 // ── Admin: create route owner ────────────────────────────────────────────────
 router.post('/owners', auth, adminOnly, wrap(async (req, res) => {
-  const { name, email, password, city = '', phone = '' } = req.body;
   const can_ride = req.body.can_ride === true; // the Rider role on top of Route owner
-  const ph = normalizePhone(phone);
-  if (ph === null) return res.status(400).json({ error: PHONE_ERROR });
-  if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password required' });
-  try {
-    const hash = bcrypt.hashSync(password, 10);
-    const user = await queries.createUser(name, email.toLowerCase().trim(), hash, 'route_owner', { city, phone: ph, owner_id: null, can_ride });
-    res.status(201).json({ id: user.id, name, email, role: 'route_owner', city, phone: ph, can_ride });
-  } catch (e) {
-    if (e.message === 'EMAIL_EXISTS') return res.status(409).json({ error: 'Email already exists' });
-    res.status(500).json({ error: e.message });
-  }
+  const r = await createOwner({ ...req.body, can_ride });
+  res.status(r.status).json(r.body);
 }));
 
 // ── Admin: update / delete owner ─────────────────────────────────────────────

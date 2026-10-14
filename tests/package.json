@@ -1,5 +1,5 @@
 {
-  "name": "kangaroopost-tests",
+  "name": "kangodrop-tests",
   "private": true,
   "description": "Test-only dependencies. Not installed by the root postinstall, so production installs stay clean.",
   "scripts": {
