@@ -1,10 +1,11 @@
 {
   "name": "kangodrop",
   "private": true,
-  "description": "Kangodrop root. Lets hosts that build the repository root (e.g. Railway without a Root Directory) install and start the backend.",
+  "description": "Kangodrop root. Lets hosts that build the repository root (e.g. Railway without a Root Directory) install and start the backend. `build` builds the screens, which the backend then serves on the same address.",
   "engines": { "node": ">=18" },
   "scripts": {
     "postinstall": "cd backend && npm install --omit=dev",
+    "build": "cd frontend && npm ci --include=dev && npm run build",
     "start": "cd backend && npm start"
   }
 }
