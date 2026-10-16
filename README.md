@@ -367,11 +367,16 @@ The schema is created automatically by `backend/database.js` on startup (`CREATE
 Production layout: **Netlify** (frontend) → **Railway** service (backend) → **Railway PostgreSQL**.
 The browser talks to the backend directly, using the address in `VITE_API_URL`.
 
-**Without Netlify:** the Railway service can serve the screens itself. With the Root Directory left empty, Railway
-runs the root `npm run build` (builds `frontend/`), and the backend serves `frontend/dist` on its own address, so
-the app and the API share one address. Then leave `VITE_API_URL` unset and add `VITE_GOOGLE_MAPS_API_KEY` and
-`VITE_GOOGLE_MAPS_MAP_ID` to the Railway service's variables (used at build time). Add that address to the Maps
-key's HTTP referrers. `CORS_ORIGINS` is then only needed for other sites.
+**Without Netlify:** the Railway service can serve the screens itself, so the app and the API share one address.
+In the service's **Settings** set:
+- **Root Directory:** `/` (the repository root, not `backend`: the build needs `frontend/` too)
+- **Build command:** `npm run build` (the root script: builds `frontend/`; the backend then serves `frontend/dist`)
+- **Start command:** `npm start`
+
+The root `package.json` asks for Node 22 (`engines`), which the frontend build needs (it fails on Node 18).
+Leave `VITE_API_URL` unset, add `VITE_GOOGLE_MAPS_API_KEY` and `VITE_GOOGLE_MAPS_MAP_ID` to the service's variables
+(Vite reads them at build time), and add the address to the Maps key's HTTP referrers. `CORS_ORIGINS` is then
+only needed for other sites.
 
 > ⚠️ **Order matters.** The backend refuses to start without the settings below (by design — it will not
 > run in production with a default password or secret). Create the database and set the variables
@@ -383,7 +388,7 @@ key's HTTP referrers. `CORS_ORIGINS` is then only needed for other sites.
 
 ### 2. Backend service
 Open the backend service → **Settings**:
-- **Root Directory:** `backend` (recommended). If it is left empty the repo-root `package.json` installs and starts the backend anyway
+- **Root Directory:** `backend` with Netlify serving the screens, or `/` when Railway serves them too (see *Without Netlify* above)
 - **Start command:** `npm start` (Railway normally detects this)
 - **Healthcheck path:** `/api/health`
 - **Networking → Generate Domain** — this is your backend address (e.g. `https://xxxx.up.railway.app`)
