@@ -9,8 +9,7 @@ router.put('/:id', auth, ownerOrAdmin, wrap(async (req, res) => {
   if (!found) return;
   const { stop } = found;
   const { address, lat, lng, type, order_num } = req.body;
-  const { missed, missed_at, ...updated } = await queries.updateStop(stop.id, address ?? stop.address, lat ?? stop.lat, lng ?? stop.lng, type ?? stop.type, order_num ?? stop.order_num);
-  res.json(updated);   // missed stops are only for the route's rider (KAN-28)
+  res.json(await queries.updateStop(stop.id, address ?? stop.address, lat ?? stop.lat, lng ?? stop.lng, type ?? stop.type, order_num ?? stop.order_num));
 }));
 
 router.delete('/:id', auth, ownerOrAdmin, wrap(async (req, res) => {

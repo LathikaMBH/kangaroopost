@@ -127,14 +127,6 @@ export default function RouteDetail({ base = '/owner' }) {
           </button>
         </div>
 
-        {/* Progress of a finished route (KAN-28): delivered / all stops. Which stops were missed is the rider's own record. */}
-        {route.status === 'completed' && stopCount > 0 && (
-          <div data-testid="route-progress" style={{ background:'var(--grn-tint)', borderRadius:12, padding:'10px 14px', marginBottom:16, color:'var(--grn)', fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:8 }}>
-            <i className="ti ti-flag-check" style={{ fontSize:18 }} />
-            Route complete: {Math.round(done / stopCount * 100)}% delivered ({done} of {stopCount})
-          </div>
-        )}
-
         {/* Route map */}
         {showMap && stopCount > 0 && (
           <div ref={routeMapRef} className="card" style={{ marginBottom:16, padding:0, overflow:'hidden', scrollMarginTop:16 }}>
