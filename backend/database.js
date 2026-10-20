@@ -106,6 +106,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_cities_name ON cities (region_id, lower(nam
 INSERT INTO regions (name) SELECT 'Satakunta' WHERE NOT EXISTS (SELECT 1 FROM regions);
 INSERT INTO cities (region_id, name) SELECT id, 'Rauma' FROM regions WHERE name = 'Satakunta' AND NOT EXISTS (SELECT 1 FROM cities);
 
+-- one-off data changes, each applied once (by name), so an admin's later rename or delete under Areas sticks
+CREATE TABLE IF NOT EXISTS data_seeds (
+  name       TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- KAN-36: Eurajoki and Lappi next to Rauma in Satakunta (skips a name the region already has)
+WITH seed AS (INSERT INTO data_seeds (name) VALUES ('kan-36-cities') ON CONFLICT DO NOTHING RETURNING name)
+INSERT INTO cities (region_id, name)
+  SELECT rg.id, c.name FROM seed, regions rg, (VALUES ('Eurajoki'), ('Lappi')) AS c(name)
+  WHERE rg.name = 'Satakunta'
+    AND NOT EXISTS (SELECT 1 FROM cities x WHERE x.region_id = rg.id AND lower(x.name) = lower(c.name));
+
 -- every route is in one city; created_by is who made it (today the owner, later also an admin or super user)
 ALTER TABLE routes ADD COLUMN IF NOT EXISTS city_id    INTEGER REFERENCES cities(id) ON DELETE RESTRICT;
 ALTER TABLE routes ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id)  ON DELETE SET NULL;
