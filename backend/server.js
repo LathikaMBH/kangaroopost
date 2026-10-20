@@ -54,8 +54,10 @@ if (fs.existsSync(path.join(DIST, 'index.html'))) {
     setHeaders: (res, file) => res.setHeader('Cache-Control',
       file.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache')
   }));
-  // single-page app: any other page address gets index.html (unknown /api addresses still get a 404 below)
-  app.get(/^\/(?!api\/|api$|socket\.io\/).*/, (_req, res) => {
+  // single-page app: any other page address gets index.html (unknown /api addresses still get a 404 below).
+  // A missing file (/assets/..., or any name with an extension) gets a 404, not index.html: a browser still holding
+  // an older version asks for its old script names, and HTML in their place left the page blank.
+  app.get(/^\/(?!api\/|api$|socket\.io\/|assets\/)(?!.*\.[A-Za-z0-9]+$).*/, (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(DIST, 'index.html'));
   });
