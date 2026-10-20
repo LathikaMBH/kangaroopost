@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 
 // Region -> City picker for a route. `cityId` is the chosen city (or null); onChange(cityId) when it changes.
-// When only one city exists it is chosen automatically.
+// When only one city exists it is chosen automatically; when only one region has cities, that region is (KAN-36).
 export default function AreaPicker({ cityId, onChange, style }) {
   const [areas, setAreas] = useState(null);
   const [regionId, setRegionId] = useState('');
@@ -13,12 +13,15 @@ export default function AreaPicker({ cityId, onChange, style }) {
   useEffect(() => {
     if (!areas) return;
     const all = areas.flatMap(r => r.cities.map(c => ({ ...c, region_id: r.id })));
+    const withCities = areas.filter(r => r.cities.length > 0);
     if (cityId) {
       const c = all.find(x => x.id === Number(cityId));
       if (c) setRegionId(String(c.region_id));
     } else if (all.length === 1) {
       setRegionId(String(all[0].region_id));
       onChange(all[0].id);
+    } else if (withCities.length === 1) {
+      setRegionId(String(withCities[0].id));
     }
   }, [areas, cityId]);
 
@@ -33,12 +36,12 @@ export default function AreaPicker({ cityId, onChange, style }) {
     <div style={{ display:'flex', gap:8, ...style }}>
       <select className="input" style={sel} aria-label="Region" value={regionId}
         onChange={e => { setRegionId(e.target.value); onChange(null); }}>
-        <option value="">Region…</option>
+        <option value="">Select region</option>
         {areas.filter(r => r.cities.length > 0).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
       </select>
       <select className="input" style={{ ...sel, borderColor: cityId ? undefined : 'var(--pr)' }} aria-label="City"
         value={cityId || ''} disabled={!region} onChange={e => onChange(e.target.value ? Number(e.target.value) : null)}>
-        <option value="">City…</option>
+        <option value="">Select city</option>
         {region?.cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
       </select>
     </div>
