@@ -125,6 +125,113 @@ UPDATE routes SET city_id = (SELECT id FROM cities ORDER BY id LIMIT 1) WHERE ci
 UPDATE routes SET created_by = owner_id WHERE created_by IS NULL AND owner_id IN (SELECT id FROM users);
 ALTER TABLE routes ALTER COLUMN city_id SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_routes_city ON routes(city_id);
+
+-- KAN-38: delivery runs. Each start of a route is one run; route, owner, city and rider are copied (no foreign keys),
+-- so a run outlives the route or the people. A finished run is never changed (triggers below). Kept 1 year (cleanUp).
+-- The delivery window is Tue 18:00 to Thu 23:00 Finnish time in the ISO week of the given time.
+CREATE OR REPLACE FUNCTION kd_window_start(ts TIMESTAMPTZ) RETURNS TIMESTAMPTZ LANGUAGE sql STABLE AS
+  $$ SELECT (date_trunc('week', ts AT TIME ZONE 'Europe/Helsinki') + interval '1 day 18 hours') AT TIME ZONE 'Europe/Helsinki' $$;
+CREATE OR REPLACE FUNCTION kd_window_end(ts TIMESTAMPTZ) RETURNS TIMESTAMPTZ LANGUAGE sql STABLE AS
+  $$ SELECT (date_trunc('week', ts AT TIME ZONE 'Europe/Helsinki') + interval '3 days 23 hours') AT TIME ZONE 'Europe/Helsinki' $$;
+CREATE TABLE IF NOT EXISTS runs (
+  id             SERIAL PRIMARY KEY,
+  route_id       INTEGER NOT NULL,
+  route_name     TEXT NOT NULL,
+  owner_id       INTEGER,
+  owner_name     TEXT,
+  city_id        INTEGER,
+  city_name      TEXT,
+  rider_id       INTEGER NOT NULL,              -- who started it; stays credited even if the route is reassigned
+  rider_name     TEXT NOT NULL,
+  iso_year       INTEGER NOT NULL,
+  iso_week       INTEGER NOT NULL,
+  window_start   TIMESTAMPTZ NOT NULL,
+  window_end     TIMESTAMPTZ NOT NULL,
+  outside_window BOOLEAN NOT NULL,
+  attempt        INTEGER NOT NULL,              -- 1, 2, ... per route and ISO week; only the last one is reported
+  started_at     TIMESTAMPTZ NOT NULL,
+  finished_at    TIMESTAMPTZ,                   -- also when it was ended (ended_by_*)
+  outcome        TEXT,                          -- completed (by the rider, or force-ended by an owner/admin)
+  ended_by_id    INTEGER,
+  ended_by_name  TEXT,
+  ended_by_role  TEXT
+);
+ALTER TABLE runs DROP CONSTRAINT IF EXISTS runs_outcome_check;
+ALTER TABLE runs ADD CONSTRAINT runs_outcome_check CHECK (outcome IN ('completed'));
+CREATE UNIQUE INDEX IF NOT EXISTS ux_runs_attempt ON runs(route_id, iso_year, iso_week, attempt);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_runs_open    ON runs(route_id) WHERE finished_at IS NULL;   -- one run in progress per route
+CREATE INDEX IF NOT EXISTS idx_runs_week    ON runs(iso_year, iso_week);
+CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at);
+CREATE TABLE IF NOT EXISTS run_stops (
+  id            SERIAL PRIMARY KEY,
+  run_id        INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+  stop_id       INTEGER NOT NULL,
+  order_num     INTEGER NOT NULL,
+  address       TEXT,
+  type          TEXT NOT NULL,
+  delivered     BOOLEAN NOT NULL DEFAULT false,
+  delivered_at  TIMESTAMPTZ,                    -- the phone's time, clamped to started_at .. received_at
+  received_at   TIMESTAMPTZ,                    -- server time
+  method        TEXT,                           -- auto | manual
+  missed        BOOLEAN NOT NULL DEFAULT false,
+  missed_at     TIMESTAMPTZ,
+  on_time       BOOLEAN NOT NULL DEFAULT false,
+  time_adjusted BOOLEAN NOT NULL DEFAULT false,
+  UNIQUE (run_id, stop_id)
+);
+-- pause, resume and reassignment of a run, with who did it
+CREATE TABLE IF NOT EXISTS run_events (
+  id        SERIAL PRIMARY KEY,
+  run_id    INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+  type      TEXT NOT NULL CHECK (type IN ('paused','resumed','reassigned')),
+  at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  by_id     INTEGER,
+  by_name   TEXT,
+  by_role   TEXT,
+  details   JSONB
+);
+CREATE INDEX IF NOT EXISTS idx_run_events_run ON run_events(run_id);
+-- append-only: a finished run, its stops and its events can't be changed (deleting, for retention, still works)
+CREATE OR REPLACE FUNCTION kd_run_frozen() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_TABLE_NAME = 'runs' THEN
+    IF OLD.finished_at IS NOT NULL THEN RAISE EXCEPTION 'RUN_FINISHED: a finished delivery run cannot be changed'; END IF;
+  ELSIF EXISTS (SELECT 1 FROM runs WHERE id = NEW.run_id AND finished_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'RUN_FINISHED: a finished delivery run cannot be changed';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_runs_frozen ON runs;
+CREATE TRIGGER trg_runs_frozen BEFORE UPDATE ON runs FOR EACH ROW EXECUTE FUNCTION kd_run_frozen();
+DROP TRIGGER IF EXISTS trg_run_stops_frozen ON run_stops;
+CREATE TRIGGER trg_run_stops_frozen BEFORE INSERT OR UPDATE ON run_stops FOR EACH ROW EXECUTE FUNCTION kd_run_frozen();
+DROP TRIGGER IF EXISTS trg_run_events_frozen ON run_events;
+CREATE TRIGGER trg_run_events_frozen BEFORE INSERT OR UPDATE ON run_events FOR EACH ROW EXECUTE FUNCTION kd_run_frozen();
+-- for reports: "Attempt N of N"; earlier attempts in the same week are superseded (kept, not reported)
+DROP VIEW IF EXISTS run_attempts;
+CREATE VIEW run_attempts AS
+  SELECT r.*, MAX(r.attempt) OVER w AS attempt_count, r.attempt < MAX(r.attempt) OVER w AS superseded
+  FROM runs r WINDOW w AS (PARTITION BY r.route_id, r.iso_year, r.iso_week);
+-- GPS pings belong to a run, so they go with it
+ALTER TABLE location_pings ADD COLUMN IF NOT EXISTS run_id INTEGER REFERENCES runs(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_pings_run      ON location_pings(run_id);
+CREATE INDEX IF NOT EXISTS idx_pings_recorded ON location_pings(recorded_at);
+-- once: routes already in progress when runs were introduced get their run, so their delivery isn't lost
+WITH seed AS (INSERT INTO data_seeds (name) VALUES ('kan-38-open-runs') ON CONFLICT DO NOTHING RETURNING name),
+open AS (
+  INSERT INTO runs (route_id, route_name, owner_id, owner_name, city_id, city_name, rider_id, rider_name, iso_year, iso_week,
+                    window_start, window_end, outside_window, attempt, started_at)
+  SELECT r.id, r.name, r.owner_id, ow.name, r.city_id, ci.name, r.rider_id, rd.name,
+         EXTRACT(isoyear FROM r.started_at AT TIME ZONE 'Europe/Helsinki'), EXTRACT(week FROM r.started_at AT TIME ZONE 'Europe/Helsinki'),
+         kd_window_start(r.started_at), kd_window_end(r.started_at),
+         NOT (r.started_at BETWEEN kd_window_start(r.started_at) AND kd_window_end(r.started_at)), 1, r.started_at
+  FROM seed, routes r JOIN users rd ON rd.id = r.rider_id LEFT JOIN users ow ON ow.id = r.owner_id LEFT JOIN cities ci ON ci.id = r.city_id
+  WHERE r.status IN ('ongoing','paused') AND r.started_at IS NOT NULL
+  RETURNING id, route_id, window_start, window_end, outside_window, started_at)
+INSERT INTO run_stops (run_id, stop_id, order_num, address, type, delivered, delivered_at, received_at, method, on_time)
+  SELECT o.id, s.id, s.order_num, s.address, s.type, s.delivered, s.delivered_at, s.delivered_at, s.delivered_method,
+         s.delivered AND NOT o.outside_window AND s.delivered_at BETWEEN o.window_start AND o.window_end
+  FROM open o JOIN stops s ON s.route_id = o.route_id;
 `;
 
 async function init() {
@@ -246,7 +353,7 @@ const queries = {
     return queries.getRouteById(id);
   },
 
-  deleteRoute: (id) => q('DELETE FROM routes WHERE id = $1', [Number(id)]), // stops + pings cascade
+  deleteRoute: (id) => q('DELETE FROM routes WHERE id = $1', [Number(id)]), // stops + pings cascade; its runs are kept
 
   getRoadPath: async (id) => (await one('SELECT road_path FROM routes WHERE id = $1', [Number(id)]))?.road_path || null,
   setRoadPath: (id, roadPath) => q('UPDATE routes SET road_path = $2 WHERE id = $1', [Number(id), JSON.stringify(roadPath)]),
@@ -328,15 +435,74 @@ const queries = {
 
   deleteStop: (id) => q('DELETE FROM stops WHERE id = $1', [Number(id)]),
 
-  deliverStop: (method, id) => one(
-    'UPDATE stops SET delivered = true, delivered_at = now(), delivered_method = $1 WHERE id = $2 RETURNING *',
-    [method, Number(id)]
-  ),
+  // ── Delivery runs (KAN-38) ───────────────────────────────────────────────
+  // Start: resets the stops and opens a new run with a copy of the route, its stops and the rider who started it.
+  // The attempt number counts the route's runs in this ISO week. Returns null (nothing changed) while a run is open:
+  // the rider ends the current round first.
+  startRun: (route_id, user) => tx(async (c) => {
+    const id = Number(route_id);
+    await c.query('SELECT id FROM routes WHERE id = $1 FOR UPDATE', [id]);
+    if ((await c.query('SELECT 1 FROM runs WHERE route_id = $1 AND finished_at IS NULL', [id])).rowCount) return null;
+    await c.query('UPDATE stops SET delivered = false, delivered_at = NULL, delivered_method = NULL WHERE route_id = $1', [id]);
+    await c.query("UPDATE routes SET status = 'ongoing', started_at = now() WHERE id = $1", [id]);
+    const { rows: [run] } = await c.query(`
+      WITH w AS (SELECT EXTRACT(isoyear FROM now() AT TIME ZONE 'Europe/Helsinki')::int AS y,
+                        EXTRACT(week    FROM now() AT TIME ZONE 'Europe/Helsinki')::int AS wk,
+                        kd_window_start(now()) AS ws, kd_window_end(now()) AS we)
+      INSERT INTO runs (route_id, route_name, owner_id, owner_name, city_id, city_name, rider_id, rider_name, iso_year, iso_week,
+                        window_start, window_end, outside_window, attempt, started_at)
+      SELECT r.id, r.name, r.owner_id, ow.name, r.city_id, ci.name, $2, COALESCE(u.name, $3), w.y, w.wk, w.ws, w.we,
+             NOT (now() BETWEEN w.ws AND w.we),
+             1 + COALESCE((SELECT MAX(x.attempt) FROM runs x WHERE x.route_id = r.id AND x.iso_year = w.y AND x.iso_week = w.wk), 0), now()
+      FROM routes r CROSS JOIN w
+      LEFT JOIN users ow ON ow.id = r.owner_id LEFT JOIN cities ci ON ci.id = r.city_id LEFT JOIN users u ON u.id = $2
+      WHERE r.id = $1 RETURNING *`, [id, Number(user.id), user.name || '']);
+    await c.query(`INSERT INTO run_stops (run_id, stop_id, order_num, address, type)
+                   SELECT $1, id, order_num, address, type FROM stops WHERE route_id = $2`, [run.id, id]);
+    return run;
+  }),
 
-  resetStops: (route_id) => q(
-    'UPDATE stops SET delivered = false, delivered_at = NULL, delivered_method = NULL WHERE route_id = $1',
-    [Number(route_id)]
-  ),
+  // Deliver a stop. delivered_at is the phone's time, clamped between the run's start and now (time_adjusted when
+  // clamped); the run's copy of the stop keeps its first delivery. on_time: inside the window of an in-window run.
+  deliverStop: (stop_id, route_id, method, phoneTime) => tx(async (c) => {
+    const received = new Date();
+    const { rows: [route] } = await c.query('SELECT started_at FROM routes WHERE id = $1 FOR UPDATE', [Number(route_id)]);
+    const { rows: [run] } = await c.query('SELECT * FROM runs WHERE route_id = $1 AND finished_at IS NULL', [Number(route_id)]);
+    const { at, adjusted } = clampDeliveredAt(phoneTime, received, run ? run.started_at : route?.started_at);
+    const { rows: [stop] } = await c.query(
+      'UPDATE stops SET delivered = true, delivered_at = $2, delivered_method = $3 WHERE id = $1 RETURNING *', [Number(stop_id), at, method]);
+    if (run) await c.query(
+      `UPDATE run_stops SET delivered = true, delivered_at = $3, received_at = $4, method = $5, time_adjusted = $6, on_time = $7
+       WHERE run_id = $1 AND stop_id = $2 AND NOT delivered`,
+      [run.id, Number(stop_id), at, received, method, adjusted, !run.outside_window && at >= run.window_start && at <= run.window_end]);
+    return stop;
+  }),
+
+  // Completed by the rider (or an owner/admin force-ending it): the run is finished and from then on frozen
+  finishRun: (route_id, user) => tx(async (c) => {
+    const id = Number(route_id);
+    await c.query("UPDATE routes SET status = 'completed', completed_at = now() WHERE id = $1", [id]);
+    await c.query(`UPDATE runs SET finished_at = now(), outcome = 'completed', ended_by_id = $2, ended_by_name = $3, ended_by_role = $4
+                   WHERE route_id = $1 AND finished_at IS NULL`, [id, user.id, user.name, user.role]);
+  }),
+
+  // pause / resume / reassigned, on the route's run in progress (nothing when there is none)
+  logRunEvent: (route_id, type, user, details = null) => q(
+    `INSERT INTO run_events (run_id, type, by_id, by_name, by_role, details)
+     SELECT id, $2, $3, $4, $5, $6 FROM runs WHERE route_id = $1 AND finished_at IS NULL`,
+    [Number(route_id), type, user.id, user.name, user.role, details && JSON.stringify(details)]),
+
+  // daily: runs (with their stops, events and pings), GPS pings, and resolved or withdrawn complaints older than 1 year
+  // are deleted for good. Open and accepted complaints are kept, however old.
+  cleanUp: async () => {
+    const del = async (sql) => (await q(sql)).rowCount;
+    return {
+      runs:       await del("DELETE FROM runs WHERE started_at < now() - interval '1 year'"),
+      pings:      await del("DELETE FROM location_pings WHERE recorded_at < now() - interval '1 year'"),
+      complaints: await del(`DELETE FROM complaints WHERE status IN ('resolved','withdrawn')
+                               AND COALESCE(resolved_at, created_at) < now() - interval '1 year'`),
+    };
+  },
 
   // ── Complaints ───────────────────────────────────────────────────────────
   getAllComplaints:       ()         => many(`${COMPLAINT_SELECT} ORDER BY c.id DESC`),
@@ -364,12 +530,35 @@ const queries = {
 
   // ── Location ─────────────────────────────────────────────────────────────
   insertPing: (route_id, rider_id, lat, lng) =>
-    q('INSERT INTO location_pings (route_id, rider_id, lat, lng) VALUES ($1,$2,$3,$4)', [Number(route_id), Number(rider_id), lat, lng]),
+    q(`INSERT INTO location_pings (route_id, rider_id, lat, lng, run_id)
+       VALUES ($1,$2,$3,$4,(SELECT id FROM runs WHERE route_id = $1 AND finished_at IS NULL))`, [Number(route_id), Number(rider_id), lat, lng]),
 };
+
+// runs fn(client) in one transaction: all or nothing
+async function tx(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+}
+
+// The phone's delivery time, but never in the future (-> received) and never before the run started (-> started).
+// No or an unreadable phone time (an older app): the server time, not marked as adjusted.
+function clampDeliveredAt(phoneTime, received, startedAt) {
+  const t = phoneTime ? new Date(phoneTime) : null;
+  if (!t || Number.isNaN(t.getTime())) return { at: received, adjusted: false };
+  if (t > received) return { at: received, adjusted: true };
+  if (startedAt && t < new Date(startedAt)) return { at: new Date(startedAt), adjusted: true };
+  return { at: t, adjusted: false };
+}
 
 async function setRouteStatus(id, status) {
   const stamp = { ongoing: 'started_at', paused: 'paused_at', completed: 'completed_at' }[status];
   await q(`UPDATE routes SET status = $2${stamp ? `, ${stamp} = now()` : ''} WHERE id = $1`, [Number(id), status]);
 }
 
-module.exports = { pool, init, queries, setRouteStatus };
+module.exports = { pool, init, queries, setRouteStatus, clampDeliveredAt };
