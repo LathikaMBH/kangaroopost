@@ -151,11 +151,13 @@ CREATE TABLE IF NOT EXISTS runs (
   attempt        INTEGER NOT NULL,              -- 1, 2, ... per route and ISO week; only the last one is reported
   started_at     TIMESTAMPTZ NOT NULL,
   finished_at    TIMESTAMPTZ,                   -- also when it was ended (ended_by_*)
-  outcome        TEXT CHECK (outcome IN ('completed','restarted')),  -- restarted: still open when the route was started again
+  outcome        TEXT,                          -- completed (by the rider, or force-ended by an owner/admin)
   ended_by_id    INTEGER,
   ended_by_name  TEXT,
   ended_by_role  TEXT
 );
+ALTER TABLE runs DROP CONSTRAINT IF EXISTS runs_outcome_check;
+ALTER TABLE runs ADD CONSTRAINT runs_outcome_check CHECK (outcome IN ('completed'));
 CREATE UNIQUE INDEX IF NOT EXISTS ux_runs_attempt ON runs(route_id, iso_year, iso_week, attempt);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_runs_open    ON runs(route_id) WHERE finished_at IS NULL;   -- one run in progress per route
 CREATE INDEX IF NOT EXISTS idx_runs_week    ON runs(iso_year, iso_week);
@@ -434,13 +436,13 @@ const queries = {
   deleteStop: (id) => q('DELETE FROM stops WHERE id = $1', [Number(id)]),
 
   // ── Delivery runs (KAN-38) ───────────────────────────────────────────────
-  // Start: closes a run left open (outcome restarted), resets the stops, and opens a new run with a copy of the route,
-  // its stops and the rider who started it. The attempt number counts the route's runs in this ISO week.
+  // Start: resets the stops and opens a new run with a copy of the route, its stops and the rider who started it.
+  // The attempt number counts the route's runs in this ISO week. Returns null (nothing changed) while a run is open:
+  // the rider ends the current round first.
   startRun: (route_id, user) => tx(async (c) => {
     const id = Number(route_id);
     await c.query('SELECT id FROM routes WHERE id = $1 FOR UPDATE', [id]);
-    await c.query(`UPDATE runs SET finished_at = now(), outcome = 'restarted', ended_by_id = $2, ended_by_name = $3, ended_by_role = $4
-                   WHERE route_id = $1 AND finished_at IS NULL`, [id, user.id, user.name, user.role]);
+    if ((await c.query('SELECT 1 FROM runs WHERE route_id = $1 AND finished_at IS NULL', [id])).rowCount) return null;
     await c.query('UPDATE stops SET delivered = false, delivered_at = NULL, delivered_method = NULL WHERE route_id = $1', [id]);
     await c.query("UPDATE routes SET status = 'ongoing', started_at = now() WHERE id = $1", [id]);
     const { rows: [run] } = await c.query(`
@@ -490,13 +492,15 @@ const queries = {
      SELECT id, $2, $3, $4, $5, $6 FROM runs WHERE route_id = $1 AND finished_at IS NULL`,
     [Number(route_id), type, user.id, user.name, user.role, details && JSON.stringify(details)]),
 
-  // daily: runs (with their stops, events and pings), GPS pings and complaints older than 1 year are deleted for good
+  // daily: runs (with their stops, events and pings), GPS pings, and resolved or withdrawn complaints older than 1 year
+  // are deleted for good. Open and accepted complaints are kept, however old.
   cleanUp: async () => {
     const del = async (sql) => (await q(sql)).rowCount;
     return {
       runs:       await del("DELETE FROM runs WHERE started_at < now() - interval '1 year'"),
       pings:      await del("DELETE FROM location_pings WHERE recorded_at < now() - interval '1 year'"),
-      complaints: await del("DELETE FROM complaints WHERE created_at < now() - interval '1 year'"),
+      complaints: await del(`DELETE FROM complaints WHERE status IN ('resolved','withdrawn')
+                               AND COALESCE(resolved_at, created_at) < now() - interval '1 year'`),
     };
   },
 

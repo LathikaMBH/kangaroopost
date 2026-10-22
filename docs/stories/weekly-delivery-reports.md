@@ -15,7 +15,7 @@ Today, starting a route clears all stop results and overwrites the route's start
 
 - **Given** a rider starts a route on Tue 19:00, **when** the start is saved, **then** a new run is created for that ISO week, with the rider's id and name and the start time.
 - **Given** a run is in progress, **when** a stop is delivered (auto within 20 m, or a tap on an apartment stop), **then** the run's copy of that stop records the time and method, and "on time" is true only if the time is between Tue 18:00 and Thu 23:00.
-- **Given** the rider taps Complete, **when** it is saved, **then** the run gets outcome Completed, a finish time, and ended by = rider. Its stop results are frozen.
+- **Given** the rider taps End, or delivers the last stop, **when** it is saved, **then** the run gets outcome Completed, a finish time, and ended by = rider. Its stop results are frozen.
 - **Given** an owner or admin force-ends a running route, **when** it is saved, **then** the outcome is Completed and ended by = that owner or admin with a timestamp. Undelivered stops stay undelivered.
 - **Given** a route has no run inside a week's window, **when** the window closes (Thu 23:00), **then** reports show that route as **Not run** for that week. This can be worked out at report time and does not need a stored row.
 - **Given** a run is finished, **when** anyone tries to change it through the app or the API, **then** the change is refused. Runs are append-only.
@@ -28,9 +28,10 @@ Today, starting a route clears all stop results and overwrites the route's start
 - **On time** is judged on the stored (clamped) delivered_at.
 - **GPS drift:** a stop that was delivered and later marked missed keeps its delivered state, as the app does today. Drift is not a reason to change a run after it is finished.
 - **Outside the window:** **Given** a rider starts a route outside Tue 18:00 to Thu 23:00, **then** the start is allowed, the run is saved with the "outside window" flag, and reports show the flag. The run belongs to the ISO week of its start. Its deliveries are not on time.
-- **Started more than once in one window:** **Given** a route is started again in the same window, **then** a new attempt is created and numbered (Attempt 2, 3, ...). Only the final attempt is used in reports, labelled "Attempt N of N". Earlier attempts are kept unchanged as "superseded" for audit, are not reported, and are deleted with the 1-year retention.
-- **Deletion:** **Given** a route, rider or owner is deleted, **then** their runs are kept, using the copied names, until the 1-year retention ends.
-- **Retention:** **Given** a run, ping or complaint is older than 1 year, **when** the daily clean-up runs, **then** it is deleted for good.
+- **One round at a time:** **Given** a route has a run in progress, **when** anyone tries to start it again, **then** the start is refused ("End the current round before starting a new one") and the run in progress is not changed. The app shows Continue / End, not Start, for a route in progress. The rider ends the run (End, or the last stop), or an owner or admin force-ends it, before a new round can start. Completed is the only stored outcome.
+- **Started more than once in one window:** **Given** a route is ended and then started again in the same window, **then** a new attempt is created and numbered (Attempt 2, 3, ...). Only the final attempt is used in reports, labelled "Attempt N of N". Earlier attempts are kept unchanged as "superseded" for audit, are not reported, and are deleted with the 1-year retention.
+- **Deletion:** **Given** a route, rider or owner is deleted, **then** their runs are kept, using the copied names, until the 1-year retention ends. Deleting a route deletes its GPS pings; its runs are kept.
+- **Retention:** **Given** a run or ping is older than 1 year, or a complaint is resolved or withdrawn and older than 1 year, **when** the daily clean-up runs, **then** it is deleted for good. Open and accepted complaints are never deleted by the clean-up, whatever their age.
 - **GDPR:** runs are personal data about the rider (times worked). Update the privacy notice and record the lawful basis (contract with the subcontractor). Pings need to be linked to the run so they can be deleted with it.
 
 ## S2. Link complaints to a route and a rider

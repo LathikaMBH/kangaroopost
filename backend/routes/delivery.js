@@ -4,11 +4,12 @@ const { queries, setRouteStatus } = require('../database');
 const { auth } = require('../middleware/auth');
 const { canView, canRide, loadRoute, loadStop } = require('../middleware/access');
 
-// Start route (only the rider the route is assigned to). Each start is a new delivery run (KAN-38); the earlier runs are kept.
+// Start route (only the rider the route is assigned to). Each start is a new delivery run (KAN-38); the earlier runs are
+// kept. A run in progress is never closed by a new start: it is ended first (End, the last stop, or an owner/admin).
 router.post('/start/:routeId', auth, wrap(async (req, res) => {
   const route = await loadRoute(req, res, req.params.routeId, canRide);
   if (!route) return;
-  await queries.startRun(route.id, req.user);
+  if (!await queries.startRun(route.id, req.user)) return res.status(409).json({ error: 'End the current round before starting a new one' });
   req.io.to(`route_${route.id}`).emit('route:started', { routeId: route.id, riderId: req.user.id, riderName: req.user.name });
   res.json(await queries.getRouteById(route.id));
 }));
