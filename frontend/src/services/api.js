@@ -61,7 +61,7 @@ export default {
   startRoute:    (id)       => api.post(`/delivery/start/${id}`),
   pauseRoute:    (id)       => api.post(`/delivery/pause/${id}`),
   resumeRoute:   (id)       => api.post(`/delivery/resume/${id}`),
-  deliverStop:   (id, m)    => api.post(`/delivery/stop/${id}`, { method: m }),
+  deliverStop:   (id, m)    => api.post(`/delivery/stop/${id}`, { method: m, delivered_at: new Date().toISOString() }), // the phone's delivery time
   endRoute:      (id)       => api.post(`/delivery/end/${id}`),
   pingLocation:  (d)        => api.post('/delivery/ping', d),
   // Missed-delivery complaints

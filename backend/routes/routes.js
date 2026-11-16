@@ -26,6 +26,15 @@ async function checkCity(res, city_id) {
   return city;
 }
 
+// A route given to another rider while it is being delivered: the run stays credited to the rider who started it,
+// and the change (who, when, from and to) is logged on the run (KAN-38)
+async function logReassign(route, rider_id, user) {
+  if (route.rider_id === rider_id || (route.status !== 'ongoing' && route.status !== 'paused')) return;
+  const to = rider_id ? await queries.getUserById(rider_id) : null;
+  await queries.logRunEvent(route.id, 'reassigned', user,
+    { from_rider_id: route.rider_id, from_rider_name: route.rider_name, to_rider_id: rider_id, to_rider_name: to?.name ?? null });
+}
+
 router.post('/', auth, ownerOrAdmin, wrap(async (req, res) => {
   const name = String(req.body.name ?? '').trim();
   if (!name) return res.status(400).json({ error: 'Name required' });
@@ -56,6 +65,7 @@ router.put('/:id', auth, ownerOrAdmin, wrap(async (req, res) => {
     if (!city) return;
     newCity = city.id;
   }
+  await logReassign(route, newRider, req.user);
   res.json(await queries.updateRoute(route.id, { name: String(name ?? '').trim() || route.name, rider_id: newRider, city_id: newCity }));
 }));
 
@@ -71,6 +81,7 @@ router.post('/:id/assign', auth, ownerOrAdmin, wrap(async (req, res) => {
   if (!route) return;
   const r = await checkRiderForRoute(res, req.body.rider_id, route);
   if (!r.ok) return;
+  await logReassign(route, r.rider_id, req.user);
   await queries.assignRoute(r.rider_id, route.id);
   res.json(await queries.getRouteById(route.id));
 }));

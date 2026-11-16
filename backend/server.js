@@ -97,9 +97,18 @@ io.on('connection', (socket) => {
   });
 });
 
+// ── Retention ─────────────────────────────────────────────────────────────────
+// Once a day (and at start): delivery runs, GPS pings, and resolved or withdrawn complaints older than 1 year are deleted
+// for good (KAN-38). Open and accepted complaints are kept.
+const cleanUp = () => queries.cleanUp()
+  .then(n => { if (n.runs || n.pings || n.complaints) console.log(`🧹 Deleted after 1 year: ${n.runs} runs, ${n.pings} pings, ${n.complaints} complaints`); })
+  .catch(e => console.error('❌ Clean-up failed', e.message));
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
 init().then(() => {
+  cleanUp();
+  setInterval(cleanUp, 24 * 60 * 60 * 1000);
   server.listen(PORT, () => {
     console.log(`\n🚀 Kangodrop backend running on http://localhost:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
