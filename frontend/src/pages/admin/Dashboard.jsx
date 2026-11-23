@@ -82,6 +82,7 @@ export default function AdminDashboard() {
       {/* Owner list */}
       <div className="section-label">Route Owners</div>
       {loading && <div className="spinner" />}
+      <div className="admin-grid">
       {owners.map(o => (
         <div key={o.id} className="card" style={{ marginBottom:12, cursor:'pointer' }} onClick={() => navigate(`/admin/owners/${o.id}`)}>
           <div style={{ display:'flex', alignItems:'center', gap:14 }}>
@@ -100,6 +101,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       ))}
+      </div>
       {!loading && owners.length === 0 && (
         <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:40 }}>
           <i className="ti ti-users-group" style={{ fontSize:48, display:'block', marginBottom:12 }} />

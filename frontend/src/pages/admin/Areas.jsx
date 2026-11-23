@@ -59,11 +59,12 @@ export default function AdminAreas() {
         <p style={{ fontSize:12, color:'var(--mut)', marginBottom:12 }}>
           Every route is in a city, and every city is in a region. Route owners choose from these when they create a route.
         </p>
-        <div style={{ marginBottom:20 }}>
+        <div className="admin-narrow" style={{ marginBottom:20 }}>
           <AddForm placeholder="New region, e.g. Satakunta" onAdd={name => api.createRegion(name).then(load)} />
         </div>
 
         {loading && <div className="spinner" />}
+        <div className="admin-grid">
         {areas.map(region => (
           <div key={region.id} className="card" style={{ marginBottom:14 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
@@ -104,6 +105,7 @@ export default function AdminAreas() {
             </div>
           </div>
         ))}
+        </div>
         {!loading && areas.length === 0 && (
           <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:40 }}>No regions yet. Add the first one above.</div>
         )}
