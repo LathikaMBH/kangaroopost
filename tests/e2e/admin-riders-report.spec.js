@@ -80,7 +80,7 @@ test('AC6 admin reaches the report from the Reports tab', async ({ page }) => {
   await open(page, { path: '/admin' });
   await page.locator('.bottom-nav').getByRole('button', { name: 'Reports' }).click();
   await expect(page).toHaveURL(/\/admin\/reports$/);
-  await page.getByRole('button', { name: /Riders directory/ }).click();
+  await page.getByRole('tab', { name: 'Riders directory' }).click();
   await expect(page).toHaveURL(/\/admin\/reports\/riders$/);
   await expect(rows(page)).toHaveCount(3);
 });

@@ -1,12 +1,47 @@
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import api from '../../services/api';
+import RouteTable from '../../components/RouteTable';
 
-// Admin reports (KAN-14). New reports get a card here and their own page under /admin/reports/.
-const REPORTS = [
-  { path:'/admin/reports/riders', icon:'ti-users', title:'Riders directory', text:'Every rider with their route owner, cities, routes and the last week they ran.' },
+// Admin reports (KAN-14). The Reports home shows the route table (KAN-51); each other report is a sub-page.
+// A new report gets an entry here; it then shows in the switcher on every report page and under Reports in the sidebar.
+export const REPORT_PAGES = [
+  { path:'/admin/reports',        label:'Routes' },
+  { path:'/admin/reports/riders', label:'Riders directory' },
 ];
+
+// The phone has no sidebar sub-menu, so every report page starts with this switcher
+export function ReportsNav() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  return (
+    <div role="tablist" aria-label="Reports" style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14 }}>
+      {REPORT_PAGES.map(p => {
+        const active = pathname === p.path;
+        return (
+          <button key={p.path} role="tab" aria-selected={active} onClick={() => navigate(p.path)}
+            style={{ padding:'7px 14px', borderRadius:20, cursor:'pointer', fontFamily:'inherit', fontSize:12, fontWeight:600,
+              border:`1px solid ${active ? 'var(--pr)' : 'var(--border)'}`, background: active ? 'var(--pr)' : 'var(--el)', color: active ? '#fff' : 'var(--sub)' }}>
+            {p.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AdminReports() {
   const navigate = useNavigate();
+  const [routes, setRoutes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = () => api.getRoutes().then(setRoutes).catch(() => {}).finally(() => setLoading(false));
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <div className="screen">
       <div className="page-header">
@@ -15,19 +50,9 @@ export default function AdminReports() {
         <div style={{ width:30 }} />
       </div>
       <div style={{ padding:'0 22px 20px' }}>
-        <div className="admin-grid">
-          {REPORTS.map(r => (
-            <button key={r.path} className="card" onClick={() => navigate(r.path)}
-              style={{ display:'flex', alignItems:'center', gap:14, width:'100%', marginBottom:12, textAlign:'left', cursor:'pointer', fontFamily:'inherit' }}>
-              <i className={`ti ${r.icon}`} style={{ fontSize:28, color:'var(--pl)', flexShrink:0 }} />
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontWeight:600, fontSize:15, color:'var(--tx)' }}>{r.title}</div>
-                <div style={{ color:'var(--mut)', fontSize:12, marginTop:3 }}>{r.text}</div>
-              </div>
-              <i className="ti ti-chevron-right" style={{ color:'var(--mut)', fontSize:18 }} />
-            </button>
-          ))}
-        </div>
+        <ReportsNav />
+        <div className="section-label">All routes</div>
+        {loading ? <div className="spinner" /> : <RouteTable routes={routes} role="admin" />}
       </div>
     </div>
   );

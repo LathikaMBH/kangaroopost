@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { ReportsNav } from './Reports';
 
 // KAN-46: every rider (and route owner with the Rider role) with their owner, cities, routes and last run.
 // No email or phone on purpose. Riders have no city of their own: the cities are those of their routes.
@@ -36,6 +37,7 @@ export default function RidersReport() {
       </div>
 
       <div style={{ padding:'0 22px 20px' }}>
+        <ReportsNav />
         <div className="admin-narrow" style={{ display:'flex', gap:10, marginBottom:14 }}>
           <select className="input" aria-label="Route owner" style={{ padding:'9px 12px', fontSize:13 }} value={ownerId} onChange={e => setOwnerId(e.target.value)}>
             <option value="">All route owners</option>

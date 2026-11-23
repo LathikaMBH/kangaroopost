@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { REPORT_PAGES } from '../pages/admin/Reports';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -12,7 +13,8 @@ export default function Layout({ children }) {
     { icon:'ti-users',   label:'Owners', path:'/admin/owners' },
     { icon:'ti-map-2',   label:'Routes', path:'/admin/routes' },
     { icon:'ti-map-pin', label:'Areas',  path:'/admin/areas' },
-    { icon:'ti-report-analytics', label:'Reports', path:'/admin/reports' },
+    // sub: shown indented under it in the sidebar (the first report page is Reports itself)
+    { icon:'ti-report-analytics', label:'Reports', path:'/admin/reports', sub: REPORT_PAGES.slice(1) },
   ];
   const ownerTabs = [
     { icon:'ti-home',    label:'Home',   path:'/owner' },
@@ -32,11 +34,17 @@ export default function Layout({ children }) {
       {isAdmin && (
         <aside className="side-nav" aria-label="Admin menu">
           <div className="side-nav-brand">Kangodrop<span>Admin</span></div>
-          {tabs.map(t => (
-            <button key={t.path} className={`side-nav-btn ${isActive(t.path)?'active':''}`} onClick={() => navigate(t.path)}>
+          {tabs.map(t => [
+            // an item with sub-items is highlighted only on its own page; on a sub-page the sub-item is
+            <button key={t.path} className={`side-nav-btn ${(t.sub ? loc.pathname === t.path : isActive(t.path))?'active':''}`} onClick={() => navigate(t.path)}>
               <i className={`ti ${t.icon}`} /><span>{t.label}</span>
-            </button>
-          ))}
+            </button>,
+            ...(t.sub || []).map(s => (
+              <button key={s.path} className={`side-nav-btn side-nav-sub ${loc.pathname === s.path?'active':''}`} onClick={() => navigate(s.path)}>
+                <span>{s.label}</span>
+              </button>
+            )),
+          ])}
           <button className="side-nav-btn side-nav-logout" onClick={() => { logout(); navigate('/login'); }}>
             <i className="ti ti-logout" /><span>Logout</span>
           </button>
