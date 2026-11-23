@@ -70,4 +70,6 @@ export default {
   acceptComplaint:  (id)    => api.post(`/complaints/${id}/accept`),
   resolveComplaint: (id)    => api.post(`/complaints/${id}/resolve`),
   deleteComplaint:  (id)    => api.delete(`/complaints/${id}`),
+  // Admin reports (KAN-14)
+  getRidersDirectory: ()    => api.get('/admin/reports/riders'),
 };

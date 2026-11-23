@@ -123,6 +123,7 @@ html, body, #root {
   .side-nav-btn:hover { background: var(--pf); color: var(--pl); }
   .side-nav-btn.active { background: var(--pr); color: #fff; }
   .side-nav-logout { margin-top: auto; }
+  .side-nav-sub { padding: 7px 12px 7px 44px; font-size: 13px; } /* lines up under the parent's label */
 
   /* lists of cards flow into columns; cards keep their own bottom margin as the row gap */
   .app-shell--admin .admin-grid {

@@ -37,6 +37,7 @@ app.use('/api/users',    require('./routes/users'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/complaints', require('./routes/complaints'));
 app.use('/api/areas',    require('./routes/areas'));
+app.use('/api/admin/reports', require('./routes/adminReports')); // admin reports in the app (normal login)
 app.use('/api/catalog',  require('./routes/catalog'));   // the website's server only (X-Api-Key)
 app.use('/api/website',  require('./routes/website'));   // the website's server only (X-Api-Key)
 app.use('/api/reports',  require('./routes/reports'));   // the website's server only (X-Api-Key), for its admin
