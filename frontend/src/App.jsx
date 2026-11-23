@@ -9,6 +9,8 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminOwners    from './pages/admin/Owners';
 import AdminRoutes    from './pages/admin/Routes';
 import AdminAreas     from './pages/admin/Areas';
+import AdminReports   from './pages/admin/Reports';
+import RidersReport   from './pages/admin/RidersReport';
 // Owner
 import OwnerDashboard from './pages/owner/Dashboard';
 import OwnerRiders    from './pages/owner/Riders';
@@ -45,6 +47,8 @@ function AppRoutes() {
       <Route path="/admin/owners"  element={<Guard roles={['admin']}><Layout><AdminOwners /></Layout></Guard>} />
       <Route path="/admin/routes"  element={<Guard roles={['admin']}><Layout><AdminRoutes /></Layout></Guard>} />
       <Route path="/admin/areas"   element={<Guard roles={['admin']}><Layout><AdminAreas /></Layout></Guard>} />
+      <Route path="/admin/reports"        element={<Guard roles={['admin']}><Layout><AdminReports /></Layout></Guard>} />
+      <Route path="/admin/reports/riders" element={<Guard roles={['admin']}><Layout><RidersReport /></Layout></Guard>} />
 
       {/* Route Owner */}
       <Route path="/owner"                   element={<Guard roles={['route_owner']}><Layout><OwnerDashboard /></Layout></Guard>} />
