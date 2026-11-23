@@ -154,10 +154,11 @@ export default function AdminOwners() {
       <div style={{ padding:'0 22px' }}>
         {saved && <div style={{ background:'var(--grn-tint)', border:'1px solid var(--grn)66', color:'var(--grn)', borderRadius:12, padding:'10px 14px', fontSize:13, marginBottom:14 }}><i className="ti ti-circle-check" /> {saved}</div>}
         {created && <CredentialsNotice title="Route owner created" email={created.email} password={created.password} onDismiss={() => setCreated(null)} />}
-        {showForm && <OwnerForm onSave={createOwner} onCancel={() => setShowForm(false)} />}
+        {showForm && <div className="admin-narrow"><OwnerForm onSave={createOwner} onCancel={() => setShowForm(false)} /></div>}
 
         {loading && <div className="spinner" />}
 
+        <div className="admin-grid">
         {owners.map(o => (
           <div key={o.id} className="card" style={{ marginBottom:14 }}>
             {/* Owner header */}
@@ -237,6 +238,7 @@ export default function AdminOwners() {
             </div>
           </div>
         ))}
+        </div>
 
         {!loading && owners.length === 0 && !showForm && (
           <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:60 }}>

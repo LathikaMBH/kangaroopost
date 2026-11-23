@@ -9,7 +9,7 @@ export const routeStatus = r => r.status || 'not_started';
 
 export default function RouteStatusTiles({ routes, value, onChange }) {
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+    <div className="status-tiles">
       {STATUSES.map(st => {
         const active = value === st.key;
         const count = routes.filter(r => routeStatus(r) === st.key).length;

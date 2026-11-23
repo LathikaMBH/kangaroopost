@@ -82,6 +82,58 @@ html, body, #root {
 .nav-btn i { font-size: 22px; }
 .nav-btn span { font-size: 10px; font-weight: 500; }
 
+/* ── Admin desktop layout (KAN-50) ───────────────────────────────────────────────
+   Only the admin shell gets .app-shell--admin, and everything below needs a >= 1024px screen as well,
+   so route owners and riders (and admins on a phone) keep the phone layout above. */
+.side-nav { display: none; }
+.status-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+
+@media (min-width: 1024px) {
+  .app-shell--admin {
+    max-width: 1400px;
+    display: grid; grid-template-columns: 240px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+  }
+  .app-shell--admin .status-bar,
+  .app-shell--admin .bottom-nav { display: none; }
+  .app-shell--admin .screen { grid-column: 2; grid-row: 1; padding-bottom: 32px; }
+  .app-shell--admin .page-header { padding-top: 24px; }
+
+  .app-shell--admin .side-nav {
+    grid-column: 1; grid-row: 1;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 24px 14px; overflow-y: auto;
+    background: var(--el); border-right: 1px solid var(--border);
+  }
+  .side-nav-brand {
+    font-size: 20px; font-weight: 700; color: var(--pr);
+    padding: 0 12px 20px; display: flex; flex-direction: column;
+  }
+  .side-nav-brand span {
+    font-size: 11px; font-weight: 600; color: var(--mut);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px;
+  }
+  .side-nav-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border: none; border-radius: 12px;
+    background: none; color: var(--sub); cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 500; text-align: left;
+    transition: background 0.15s, color 0.15s;
+  }
+  .side-nav-btn i { font-size: 20px; }
+  .side-nav-btn:hover { background: var(--pf); color: var(--pl); }
+  .side-nav-btn.active { background: var(--pr); color: #fff; }
+  .side-nav-logout { margin-top: auto; }
+
+  /* lists of cards flow into columns; cards keep their own bottom margin as the row gap */
+  .app-shell--admin .admin-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    column-gap: 16px; align-items: start;
+  }
+  /* forms would stretch across the whole monitor, so keep them at a readable width */
+  .app-shell--admin .admin-narrow { max-width: 640px; }
+  .app-shell--admin .status-tiles { grid-template-columns: repeat(4, 1fr); }
+}
+
 /* ── Top Status Bar Spacer ───────────────────────────────────────────────────── */
 .status-bar { height: calc(44px + var(--safe-top)); flex-shrink: 0; }
 

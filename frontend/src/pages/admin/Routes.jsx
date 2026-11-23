@@ -36,8 +36,9 @@ export default function AdminRoutes() {
         <div style={{ width:30 }} />
       </div>
       <div style={{ padding:'0 22px' }}>
-        <CityFilter routes={routes} value={cityId} onChange={setCityId} />
+        <div className="admin-narrow"><CityFilter routes={routes} value={cityId} onChange={setCityId} /></div>
         {loading && <div className="spinner" />}
+        <div className="admin-grid">
         {shown.map(r => (
           <div key={r.id} className="card" style={{ marginBottom:14 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
@@ -58,6 +59,7 @@ export default function AdminRoutes() {
             </div>
           </div>
         ))}
+        </div>
         {!loading && shown.length === 0 && (
           <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:60 }}>No routes found</div>
         )}
