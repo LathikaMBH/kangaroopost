@@ -15,9 +15,35 @@ export default function MasterRoutes({ base = '/owner' }) {
   const [filter, setFilter] = useState('all');
   const [cityId, setCityId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [riders, setRiders] = useState([]);
+  const [changing, setChanging] = useState(null); // KAN-52: { id, rider } of the card whose rider is being changed
+  const [changeError, setChangeError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const load = () => api.getRoutes().then(setRoutes).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.getRiders().then(setRiders).catch(() => setRiders([])); }, []);
+
+  const startChange = (r, e) => {
+    e.stopPropagation();
+    setChangeError('');
+    setChanging({ id: r.id, rider: r.rider_id ? String(r.rider_id) : '' });
+  };
+
+  // a run in progress stays credited to the rider who started it; the change is logged on the run (KAN-38)
+  const saveRider = async (r, e) => {
+    e.stopPropagation();
+    const rider_id = changing.rider === '' ? null : Number(changing.rider);
+    if (rider_id === r.rider_id) { setChanging(null); return; }
+    const live = r.status === 'ongoing' || r.status === 'paused';
+    if (live && !confirm(`${r.rider_name || 'A rider'} is delivering this route right now. Give it to another rider?`)) return;
+    setSaving(true); setChangeError('');
+    try {
+      const updated = await api.assignRoute(r.id, rider_id);
+      setRoutes(rs => rs.map(x => x.id === r.id ? { ...x, ...updated } : x));
+      setChanging(null);
+    } catch (err) { setChangeError(err?.error || 'Could not change the rider'); }
+    finally { setSaving(false); }
+  };
 
   const deleteRoute = async (id, e) => {
     e.stopPropagation();
@@ -76,16 +102,39 @@ export default function MasterRoutes({ base = '/owner' }) {
         {loading && <div className="spinner" />}
         {filtered.map(r => (
           <div key={r.id} className="card" style={{ marginBottom:14, cursor:'pointer' }} onClick={() => navigate(`${base}/routes/${r.id}`)}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
-              <div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:12 }}>
+              <div style={{ minWidth:0, flex:1 }}>
                 <div style={{ fontWeight:600, fontSize:15, color:'var(--tx)' }}>{r.name}</div>
                 {r.city_name && <div style={{ color:'var(--mut)', fontSize:12, marginTop:3 }}><i className="ti ti-map-pin" style={{ fontSize:11 }} /> {areaLabel(r)}</div>}
                 <div style={{ color:'var(--mut)', fontSize:12, marginTop:3 }}>
                   {r.rider_name ? <><i className="ti ti-user" style={{ fontSize:11 }} /> {r.rider_name}</> : <span style={{ color:'var(--amb)' }}><i className="ti ti-alert-triangle" style={{ fontSize:11 }} /> Unassigned</span>}
                 </div>
               </div>
-              <StatusBadge status={r.status} />
+              {/* stacked, so the route name keeps its width on a phone */}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8, flexShrink:0 }}>
+                <StatusBadge status={r.status} />
+                <button className="btn btn-ghost btn-sm" style={{ padding:'4px 10px', fontSize:11, borderRadius:20 }}
+                  aria-label={`Change rider of ${r.name}`} onClick={e => startChange(r, e)}>
+                  <i className="ti ti-user-edit" style={{ fontSize:13 }} /> Change rider
+                </button>
+              </div>
             </div>
+            {changing?.id === r.id && (
+              <div onClick={e => e.stopPropagation()} style={{ marginBottom:14 }}>
+                <select className="input" aria-label="Rider" value={changing.rider} autoFocus
+                  onChange={e => setChanging({ ...changing, rider: e.target.value })} style={{ padding:'10px 12px', fontSize:14 }}>
+                  <option value="">Unassigned</option>
+                  {riders.map(rd => <option key={rd.id} value={rd.id}>{rd.name}</option>)}
+                </select>
+                {changeError && <div style={{ color:'var(--red)', fontSize:13, marginTop:8 }}>{changeError}</div>}
+                <div style={{ display:'flex', gap:8, marginTop:8 }}>
+                  <button className="btn btn-primary btn-sm" style={{ flex:1 }} disabled={saving} onClick={e => saveRider(r, e)}>
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" style={{ flex:1 }} onClick={e => { e.stopPropagation(); setChanging(null); }}>Cancel</button>
+                </div>
+              </div>
+            )}
             <div style={{ display:'flex', gap:16, marginBottom:14 }}>
               <span style={{ color:'var(--sub)', fontSize:13 }}><i className="ti ti-mailbox" style={{ fontSize:12 }} /> {r.stop_count} stops</span>
               {r.delivered_count > 0 && <span style={{ color:'var(--grn)', fontSize:13 }}><i className="ti ti-check" style={{ fontSize:12 }} /> {r.delivered_count} done</span>}
