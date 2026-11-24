@@ -6,8 +6,9 @@ import RouteTable from '../../components/RouteTable';
 // Admin reports (KAN-14). The Reports home shows the route table (KAN-51); each other report is a sub-page.
 // A new report gets an entry here; it then shows in the switcher on every report page and under Reports in the sidebar.
 export const REPORT_PAGES = [
-  { path:'/admin/reports',        label:'Routes' },
-  { path:'/admin/reports/riders', label:'Riders directory' },
+  { path:'/admin/reports',         label:'Routes' },
+  { path:'/admin/reports/network', label:'Weekly network' },
+  { path:'/admin/reports/riders',  label:'Riders directory' },
 ];
 
 // The phone has no sidebar sub-menu, so every report page starts with this switcher
