@@ -74,4 +74,5 @@ export default {
   deleteComplaint:  (id)    => api.delete(`/complaints/${id}`),
   // Admin reports (KAN-14)
   getRidersDirectory: ()    => api.get('/admin/reports/riders'),
+  getNetworkReport:   (week) => api.get('/admin/reports/network', { params: week ? { week } : {} }),
 };
