@@ -67,6 +67,8 @@ export default {
   // Missed-delivery complaints
   getComplaints:    ()      => api.get('/complaints'),
   createComplaint:  (d)     => api.post('/complaints', d),
+  getComplaintWeeks: ()     => api.get('/complaints/weeks'),
+  getComplaintRouteWeek: (route_id, iso_year, iso_week) => api.get('/complaints/route-week', { params: { route_id, iso_year, iso_week } }),
   acceptComplaint:  (id)    => api.post(`/complaints/${id}/accept`),
   resolveComplaint: (id)    => api.post(`/complaints/${id}/resolve`),
   deleteComplaint:  (id)    => api.delete(`/complaints/${id}`),

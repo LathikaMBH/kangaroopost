@@ -232,6 +232,25 @@ INSERT INTO run_stops (run_id, stop_id, order_num, address, type, delivered, del
   SELECT o.id, s.id, s.order_num, s.address, s.type, s.delivered, s.delivered_at, s.delivered_at, s.delivered_method,
          s.delivered AND NOT o.outside_window AND s.delivered_at BETWEEN o.window_start AND o.window_end
   FROM open o JOIN stops s ON s.route_id = o.route_id;
+
+-- KAN-39: a complaint is about one route in one delivery week. The rider is filled in from that week's run (the run is
+-- empty when the route was not run). Route and city names are copied, like on runs, so reports survive a deleted route.
+-- Complaints filed before this have no route ("unknown" in reports). Deleting one marks it withdrawn, with who and when.
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS route_id          INTEGER;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS route_name        TEXT;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS city_id           INTEGER;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS city_name         TEXT;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS iso_year          INTEGER;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS iso_week          INTEGER;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS run_id            INTEGER REFERENCES runs(id) ON DELETE SET NULL;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS stop_id           INTEGER;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS withdrawn_at      TIMESTAMPTZ;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS withdrawn_by_id   INTEGER;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS withdrawn_by_name TEXT;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS withdrawn_by_role TEXT;
+ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;
+ALTER TABLE complaints ADD CONSTRAINT complaints_status_check CHECK (status IN ('open','accepted','resolved','withdrawn'));
+CREATE INDEX IF NOT EXISTS idx_complaints_week ON complaints(iso_year, iso_week);
 `;
 
 async function init() {
@@ -519,19 +538,41 @@ const queries = {
       runs:       await del("DELETE FROM runs WHERE started_at < now() - interval '1 year'"),
       pings:      await del("DELETE FROM location_pings WHERE recorded_at < now() - interval '1 year'"),
       complaints: await del(`DELETE FROM complaints WHERE status IN ('resolved','withdrawn')
-                               AND COALESCE(resolved_at, created_at) < now() - interval '1 year'`),
+                               AND COALESCE(withdrawn_at, resolved_at, created_at) < now() - interval '1 year'`),
     };
   },
 
   // ── Complaints ───────────────────────────────────────────────────────────
   getAllComplaints:       ()         => many(`${COMPLAINT_SELECT} ORDER BY c.id DESC`),
-  getComplaintsByOwner:   (owner_id) => many(`${COMPLAINT_SELECT} WHERE c.owner_id = $1 ORDER BY c.id DESC`, [Number(owner_id)]),
-  getComplaintsForRider:  (rider_id) => many(`${COMPLAINT_SELECT} WHERE c.rider_id = $1 ORDER BY c.id DESC`, [Number(rider_id)]),
+  // the owner and the rider no longer see a withdrawn complaint; admin still does (audit)
+  getComplaintsByOwner:   (owner_id) => many(`${COMPLAINT_SELECT} WHERE c.owner_id = $1 AND c.status <> 'withdrawn' ORDER BY c.id DESC`, [Number(owner_id)]),
+  getComplaintsForRider:  (rider_id) => many(`${COMPLAINT_SELECT} WHERE c.rider_id = $1 AND c.status <> 'withdrawn' ORDER BY c.id DESC`, [Number(rider_id)]),
   getComplaintById:       (id)       => one(`${COMPLAINT_SELECT} WHERE c.id = $1`, [Number(id)]),
 
-  createComplaint: async (owner_id, rider_id, address) => {
-    const { id } = await one('INSERT INTO complaints (owner_id, rider_id, address) VALUES ($1,$2,$3) RETURNING id',
-      [Number(owner_id), Number(rider_id), address]);
+  // KAN-39: the delivery weeks a complaint can be filed for, newest first: the last 12 ISO weeks (Finnish time),
+  // counting this week only once its window (Tue 18:00) has opened
+  getComplaintWeeks: () => many(`
+    SELECT EXTRACT(isoyear FROM w)::int AS iso_year, EXTRACT(week FROM w)::int AS iso_week,
+           kd_window_start(w AT TIME ZONE 'Europe/Helsinki') AS window_start,
+           kd_window_end(w AT TIME ZONE 'Europe/Helsinki')   AS window_end
+    FROM generate_series(date_trunc('week', now() AT TIME ZONE 'Europe/Helsinki'),
+                         date_trunc('week', now() AT TIME ZONE 'Europe/Helsinki') - interval '12 weeks', interval '-1 week') AS w
+    WHERE kd_window_start(w AT TIME ZONE 'Europe/Helsinki') <= now()
+    LIMIT 12`),
+
+  // the route's reported run in that week (the last attempt), or null when it was not run
+  getWeekRun: (route_id, iso_year, iso_week) => one(`
+    SELECT id, rider_id, rider_name, attempt, started_at, finished_at FROM runs
+    WHERE route_id = $1 AND iso_year = $2 AND iso_week = $3 ORDER BY attempt DESC LIMIT 1`,
+    [Number(route_id), Number(iso_year), Number(iso_week)]),
+  getRunStops: (run_id) => many(`SELECT stop_id AS id, order_num, address, type FROM run_stops WHERE run_id = $1 ORDER BY order_num, stop_id`, [Number(run_id)]),
+
+  createComplaint: async ({ owner_id, rider_id, address, route, iso_year, iso_week, run_id, stop_id }) => {
+    const { id } = await one(`
+      INSERT INTO complaints (owner_id, rider_id, address, route_id, route_name, city_id, city_name, iso_year, iso_week, run_id, stop_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+      [Number(owner_id), Number(rider_id), address, route.id, route.name, route.city_id, route.city_name,
+       Number(iso_year), Number(iso_week), run_id, stop_id]);
     return queries.getComplaintById(id);
   },
 
@@ -545,7 +586,10 @@ const queries = {
     return queries.getComplaintById(id);
   },
 
-  deleteComplaint: (id) => q('DELETE FROM complaints WHERE id = $1', [Number(id)]),
+  // KAN-39: deleting keeps the complaint for audit as withdrawn, with who did it and when
+  withdrawComplaint: (id, user) => q(
+    `UPDATE complaints SET status = 'withdrawn', withdrawn_at = now(), withdrawn_by_id = $2, withdrawn_by_name = $3, withdrawn_by_role = $4
+     WHERE id = $1`, [Number(id), user.id, user.name, user.role]),
 
   // ── Location ─────────────────────────────────────────────────────────────
   insertPing: (route_id, rider_id, lat, lng) =>
