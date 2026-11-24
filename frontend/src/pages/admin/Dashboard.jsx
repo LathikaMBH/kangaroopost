@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import RouteStatusTiles, { routeStatus } from '../../components/RouteStatusTiles';
-import RouteTable, { ViewToggle } from '../../components/RouteTable';
+import RouteStatusTiles from '../../components/RouteStatusTiles';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -11,7 +10,6 @@ export default function AdminDashboard() {
   const [owners, setOwners] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState(null);
 
   useEffect(() => {
     const load = () => Promise.all([api.getOwners(), api.getRoutes()])
@@ -22,8 +20,6 @@ export default function AdminDashboard() {
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
   }, []);
-
-  const visibleRoutes = statusFilter ? routes.filter(r => routeStatus(r) === statusFilter) : routes;
 
   const stats = {
     owners:    owners.length,
@@ -59,10 +55,10 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Route status */}
+      {/* Route status: counts only. The route table is on the Reports page (KAN-51). */}
       <div className="section-label">Route status</div>
-      <RouteStatusTiles routes={routes} value={statusFilter} onChange={setStatusFilter} />
-      <RouteTable routes={visibleRoutes} role="admin" emptyText={statusFilter ? 'No routes with this status' : 'No routes found'} />
+      <RouteStatusTiles routes={routes} />
+      <div style={{ marginBottom:14 }} />
 
       {/* Quick actions */}
       <div className="section-label">Actions</div>

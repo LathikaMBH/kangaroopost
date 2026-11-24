@@ -290,6 +290,25 @@ const queries = {
 
   getAllRiders: () => many(`SELECT ${SAFE_USER} FROM users WHERE role = 'rider' ORDER BY id`),
 
+  // KAN-46 riders directory (admin). Everyone who delivers: riders, plus route owners with the Rider role, who ride
+  // all their own routes. Riders have no city of their own, so their cities are those of their routes.
+  // No email or phone: the report doesn't need them.
+  getRidersDirectory: () => many(`
+    SELECT u.id, u.name, u.role, u.created_at, ow.id AS owner_id, ow.name AS owner_name,
+           rt.route_count, rt.cities, lr.started_at AS last_run_at, lr.iso_year AS last_run_year, lr.iso_week AS last_run_week
+    FROM users u
+    LEFT JOIN users ow ON ow.id = CASE WHEN u.role = 'rider' THEN u.owner_id ELSE u.id END
+    CROSS JOIN LATERAL (
+      SELECT COUNT(*)::int AS route_count,
+             COALESCE(jsonb_agg(DISTINCT jsonb_build_object('id', ci.id, 'name', ci.name, 'region', rg.name))
+                      FILTER (WHERE ci.id IS NOT NULL), '[]') AS cities
+      FROM routes r LEFT JOIN cities ci ON ci.id = r.city_id LEFT JOIN regions rg ON rg.id = ci.region_id
+      WHERE CASE WHEN u.role = 'rider' THEN r.rider_id = u.id ELSE r.owner_id = u.id END) rt
+    LEFT JOIN LATERAL (
+      SELECT started_at, iso_year, iso_week FROM runs WHERE rider_id = u.id ORDER BY started_at DESC LIMIT 1) lr ON true
+    WHERE u.role = 'rider' OR (u.role = 'route_owner' AND u.can_ride)
+    ORDER BY ow.name, u.name`),
+
   createUser: async (name, email, password_hash, role, extra = {}) => {
     try {
       return await one(
