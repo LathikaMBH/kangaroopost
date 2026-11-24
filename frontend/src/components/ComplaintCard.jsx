@@ -33,6 +33,12 @@ export default function ComplaintCard({ complaint: c, showRider, onAccept, onRes
             <ComplaintBadge status={c.status} />
           </div>
           <div style={{ fontWeight:600, fontSize:14, marginTop:6, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{c.address}</div>
+          {/* KAN-39: complaints filed before then have no route */}
+          {c.route_name && (
+            <div style={{ color:'var(--sub)', fontSize:12, marginTop:4 }}>
+              <i className="ti ti-map-2" style={{ fontSize:11 }} /> {c.route_name}{c.iso_week ? ` · Week ${c.iso_week}` : ''}
+            </div>
+          )}
           <div style={{ color:'var(--mut)', fontSize:12, marginTop:4 }}>
             {showRider ? <><i className="ti ti-bike" style={{ fontSize:11 }} /> {c.rider_name} · </> : c.owner_name ? <>From {c.owner_name} · </> : null}
             {when(c.created_at)}
