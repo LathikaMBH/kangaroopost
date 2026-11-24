@@ -35,6 +35,8 @@ export default {
   // Riders (owner)
   getRiders:     ()         => api.get('/users/riders'),
   createRider:   (d)        => api.post('/users/riders', d),
+  getMe:         ()         => api.get('/users/me'),
+  stopRiding:    ()         => api.delete('/users/me/ride'),
   updateRider:   (id, d)    => api.put(`/users/riders/${id}`, d),
   deleteRider:   (id)       => api.delete(`/users/riders/${id}`),
   // Routes
