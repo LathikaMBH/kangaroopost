@@ -312,6 +312,53 @@ const queries = {
   // KAN-46 riders directory (admin). Everyone who delivers: riders, plus route owners with the Rider role, who ride
   // all their own routes. Riders have no city of their own, so their cities are those of their routes.
   // No email or phone: the report doesn't need them.
+  // KAN-43: the delivery weeks a report can show, newest first: the last 52 ISO weeks (Finnish time) whose window has
+  // opened. finished = the window (Thu 23:00) has closed.
+  getReportWeeks: () => many(`
+    SELECT EXTRACT(isoyear FROM w)::int AS iso_year, EXTRACT(week FROM w)::int AS iso_week,
+           kd_window_start(w AT TIME ZONE 'Europe/Helsinki') AS window_start,
+           kd_window_end(w AT TIME ZONE 'Europe/Helsinki')   AS window_end,
+           kd_window_end(w AT TIME ZONE 'Europe/Helsinki') < now() AS finished
+    FROM generate_series(date_trunc('week', now() AT TIME ZONE 'Europe/Helsinki'),
+                         date_trunc('week', now() AT TIME ZONE 'Europe/Helsinki') - interval '52 weeks', interval '-1 week') AS w
+    WHERE kd_window_start(w AT TIME ZONE 'Europe/Helsinki') <= now()
+    LIMIT 52`),
+
+  // KAN-43: one row per route in a delivery week, with its reported run (the last attempt) and that week's complaints.
+  // The routes are those that existed by the end of the window, plus deleted ones that ran (names copied on the run).
+  // outcome: completed (by the rider) | force_ended (by an owner or admin) | in_progress | not_run.
+  // Complaints: open = open or accepted; withdrawn ones are left out.
+  getWeeklyRoutes: (iso_year, iso_week, window_end) => many(`
+    WITH rr AS (SELECT * FROM run_attempts WHERE iso_year = $1 AND iso_week = $2 AND NOT superseded),
+    base AS (
+      SELECT r.id AS route_id, r.name AS route_name, r.owner_id, r.city_id FROM routes r WHERE r.created_at <= $3
+      UNION ALL
+      SELECT rr.route_id, rr.route_name, rr.owner_id, rr.city_id FROM rr
+      WHERE NOT EXISTS (SELECT 1 FROM routes r WHERE r.id = rr.route_id AND r.created_at <= $3))
+    SELECT b.route_id, b.route_name, b.owner_id, COALESCE(ow.name, rr.owner_name) AS owner_name,
+           b.city_id, COALESCE(ci.name, rr.city_name) AS city_name, rg.id AS region_id, rg.name AS region_name,
+           rr.id AS run_id, rr.rider_id, rr.rider_name, rr.started_at, rr.finished_at, rr.ended_by_name,
+           COALESCE(rr.outside_window, false) AS outside_window, rr.attempt, rr.attempt_count,
+           CASE WHEN rr.id IS NULL THEN 'not_run' WHEN rr.finished_at IS NULL THEN 'in_progress'
+                WHEN rr.ended_by_role IN ('route_owner','admin') THEN 'force_ended' ELSE 'completed' END AS outcome,
+           st.stops, st.delivered, st.on_time, st.missed, cp.complaints_open, cp.complaints_resolved
+    FROM base b
+    LEFT JOIN rr ON rr.route_id = b.route_id
+    LEFT JOIN users ow ON ow.id = b.owner_id
+    LEFT JOIN cities ci ON ci.id = b.city_id
+    LEFT JOIN regions rg ON rg.id = ci.region_id
+    CROSS JOIN LATERAL (
+      SELECT COUNT(*)::int AS stops, COUNT(*) FILTER (WHERE delivered)::int AS delivered,
+             COUNT(*) FILTER (WHERE on_time)::int AS on_time, COUNT(*) FILTER (WHERE missed)::int AS missed
+      FROM run_stops WHERE run_id = rr.id) st
+    CROSS JOIN LATERAL (
+      SELECT COUNT(*) FILTER (WHERE status IN ('open','accepted'))::int AS complaints_open,
+             COUNT(*) FILTER (WHERE status = 'resolved')::int AS complaints_resolved
+      FROM complaints WHERE route_id = b.route_id AND iso_year = $1 AND iso_week = $2) cp
+    ORDER BY owner_name, b.route_name`, [Number(iso_year), Number(iso_week), window_end]),
+
+  getOwnerNames: () => many(`SELECT id, name FROM users WHERE role = 'route_owner' ORDER BY name`),
+
   getRidersDirectory: () => many(`
     SELECT u.id, u.name, u.role, u.created_at, ow.id AS owner_id, ow.name AS owner_name,
            rt.route_count, rt.cities, lr.started_at AS last_run_at, lr.iso_year AS last_run_year, lr.iso_week AS last_run_week
