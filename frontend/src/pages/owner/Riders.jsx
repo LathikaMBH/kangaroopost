@@ -45,19 +45,30 @@ export default function OwnerRiders() {
   const [resetFor, setResetFor] = useState(null);
   const [editFor, setEditFor] = useState(null);
   const [saved, setSaved] = useState('');
+  const [me, setMe] = useState(null); // KAN-53: whether this owner has the Rider role
 
-  const load = () => api.getRiders().then(setRiders);
+  const load = () => { api.getRiders().then(setRiders); api.getMe().then(setMe).catch(() => {}); };
   useEffect(() => { load(); }, []);
 
+  // KAN-53: the owner's own email adds the Rider role to their account; no name or password needed
+  const isSelf = !!user?.email && form.email.trim().toLowerCase() === user.email.toLowerCase();
+
   const createRider = async e => {
-    e.preventDefault(); setError(''); setSaving(true);
+    e.preventDefault(); setError(''); setSaved(''); setSaving(true);
     try {
-      await api.createRider(form);
-      setCreated({ email: form.email.trim().toLowerCase(), password: form.password });
+      const r = await api.createRider(isSelf ? { email: form.email } : form);
+      if (r.self) setSaved('You are now a rider too. Sign in with your own email and password and choose Rider to deliver your routes.');
+      else setCreated({ email: form.email.trim().toLowerCase(), password: form.password });
       setForm({ name:'', email:'', password:'', phone:'' });
       setShowForm(false); load();
     } catch (err) { setError(err.error || 'Failed to create rider'); }
     finally { setSaving(false); }
+  };
+
+  const stopRiding = async () => {
+    if (!confirm('Remove your Rider role? You will no longer be able to sign in as a rider.')) return;
+    setSaved('');
+    try { setMe(await api.stopRiding()); } catch (err) { alert(err.error || 'Could not remove the Rider role'); }
   };
 
   const deleteRider = async (id) => {
@@ -104,16 +115,39 @@ export default function OwnerRiders() {
           <div className="card" style={{ marginBottom:20, borderColor:'var(--pr)44' }}>
             <div style={{ color:'var(--pl)', fontWeight:600, fontSize:14, marginBottom:14 }}><i className="ti ti-user-plus" /> Add rider</div>
             <form onSubmit={createRider} style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <input className="input" placeholder="Full name" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} required />
               <input className="input" type="email" placeholder="Email address" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} required />
-              <PhoneInput value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
-              <PasswordField value={form.password} onChange={v => setForm(f => ({ ...f, password: v }))} placeholder="Password" />
+              {isSelf ? (
+                <div data-testid="self-note" style={{ background:'var(--el)', border:'1px solid var(--border)', borderRadius:12, padding:'10px 12px', fontSize:13, color:'var(--sub)' }}>
+                  <i className="ti ti-info-circle" /> This is your own email. You'll be added as a rider yourself and sign in with your current password, choosing Rider.
+                </div>
+              ) : <>
+                <input className="input" placeholder="Full name" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} required />
+                <PhoneInput value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
+                <PasswordField value={form.password} onChange={v => setForm(f => ({ ...f, password: v }))} placeholder="Password" />
+              </>}
               {error && <div style={{ color:'var(--red)', fontSize:13 }}>{error}</div>}
               <div style={{ display:'flex', gap:10 }}>
-                <button className="btn btn-primary" type="submit" style={{ flex:2 }} disabled={saving}>{saving?'Creating...':'Create Rider'}</button>
+                <button className="btn btn-primary" type="submit" style={{ flex:2 }} disabled={saving}>{saving ? (isSelf ? 'Adding...' : 'Creating...') : (isSelf ? 'Add me as a rider' : 'Create Rider')}</button>
                 <button className="btn btn-ghost" type="button" style={{ flex:1 }} onClick={() => setShowForm(false)}>Cancel</button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* KAN-53: the owner themselves, when they have the Rider role (not one of the 5) */}
+        {me?.can_ride && (
+          <div className="card" data-testid="self-rider" style={{ marginBottom:12, borderColor:'var(--pr)66' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ width:48, height:48, borderRadius:16, background:'var(--pl)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', flexShrink:0 }}><i className="ti ti-bike" style={{ fontSize:22 }} /></div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:600, fontSize:15 }}>{me.name} <span className="badge badge-not_started" style={{ fontSize:9, padding:'1px 6px', marginLeft:4 }}>You</span></div>
+                <div style={{ color:'var(--mut)', fontSize:12, marginTop:2, wordBreak:'break-all' }}>{me.email}</div>
+                <div style={{ color:'var(--mut)', fontSize:12, marginTop:2 }}>Sign in choosing Rider to deliver all your routes</div>
+              </div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:12 }}>
+              <button className="btn btn-ghost btn-sm" style={ACTION_BTN} onClick={stopRiding}><i className="ti ti-user-minus" style={{ fontSize:13 }} /> Stop riding</button>
+            </div>
           </div>
         )}
 
@@ -152,7 +186,7 @@ export default function OwnerRiders() {
           </div>
         ))}
 
-        {riders.length === 0 && (
+        {riders.length === 0 && !me?.can_ride && (
           <div style={{ textAlign:'center', color:'var(--mut)', paddingTop:60 }}>
             <i className="ti ti-bike" style={{ fontSize:48, display:'block', marginBottom:12 }} />
             No riders yet — tap + to add one
