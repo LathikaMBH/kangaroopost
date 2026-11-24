@@ -71,10 +71,19 @@ router.get('/riders', auth, ownerOrAdmin, wrap(async (req, res) => {
 }));
 
 // ── Owner: create rider (max 5) ──────────────────────────────────────────────
+// KAN-53: a rider with the route owner's own email is the owner themselves: their account gets the Rider role
+// (can_ride) instead of a second account. They keep their password, sign in choosing Rider, and ride all their own
+// routes. It doesn't count towards the 5 riders.
 router.post('/riders', auth, ownerOrAdmin, wrap(async (req, res) => {
   const owner_id = req.user.role === 'admin' ? req.body.owner_id : req.user.id;
   if (!owner_id) return res.status(400).json({ error: 'owner_id required' });
-  if (req.user.role === 'admin' && !await queries.getOwnerById(owner_id)) return res.status(400).json({ error: 'Route owner not found' });
+  const owner = await queries.getOwnerById(owner_id);
+  if (!owner) return res.status(400).json({ error: 'Route owner not found' });
+  if (String(req.body.email ?? '').trim().toLowerCase() === owner.email) {
+    if (owner.can_ride) return res.status(409).json({ error: req.user.role === 'admin' ? 'This route owner already has the Rider role' : 'You already have the Rider role' });
+    await queries.updateUser(owner.id, { can_ride: true });
+    return res.status(201).json({ id: owner.id, name: owner.name, email: owner.email, role: 'route_owner', can_ride: true, self: true });
+  }
   const count = await queries.countRidersByOwner(owner_id);
   if (count >= 5) return res.status(400).json({ error: 'Maximum 5 riders per route owner' });
   const { name, email, password, phone = '' } = req.body;
@@ -89,6 +98,16 @@ router.post('/riders', auth, ownerOrAdmin, wrap(async (req, res) => {
     if (e.message === 'EMAIL_EXISTS') return res.status(409).json({ error: 'Email already exists' });
     res.status(500).json({ error: e.message });
   }
+}));
+
+// ── The signed-in account (KAN-53: whether a route owner has the Rider role) ──
+router.get('/me', auth, wrap(async (req, res) => res.json(await queries.getUserById(req.user.id))));
+
+// KAN-53: a route owner gives up their own Rider role (an admin can still give it back under Owners)
+router.delete('/me/ride', auth, wrap(async (req, res) => {
+  const me = await queries.getUserById(req.user.id);
+  if (!me || me.role !== 'route_owner') return res.status(403).json({ error: 'Route owner only' });
+  res.json(await queries.updateUser(me.id, { can_ride: false }));
 }));
 
 // ── Owner: update / delete rider ─────────────────────────────────────────────
