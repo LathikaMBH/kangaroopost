@@ -12,10 +12,13 @@ import AdminAreas     from './pages/admin/Areas';
 import AdminReports   from './pages/admin/Reports';
 import RidersReport   from './pages/admin/RidersReport';
 import NetworkReport  from './pages/admin/NetworkReport';
+import RiderPerformanceReport from './pages/admin/RiderPerformanceReport';
+import ComplaintsReport from './pages/admin/ComplaintsReport';
 // Owner
 import OwnerDashboard from './pages/owner/Dashboard';
 import OwnerRiders    from './pages/owner/Riders';
 import OwnerComplaints from './pages/owner/Complaints';
+import OwnerReports   from './pages/owner/Reports';
 // Shared route pages (owner uses master's pages)
 import MasterRoutes   from './pages/master/Routes';
 import CreateRoute    from './pages/master/CreateRoute';
@@ -23,6 +26,7 @@ import RouteDetail    from './pages/master/RouteDetail';
 // Rider
 import RiderDashboard from './pages/rider/Dashboard';
 import RiderNavigate  from './pages/rider/Navigate';
+import RiderReports   from './pages/rider/Reports';
 
 function Guard({ children, roles }) {
   const { user, loading } = useAuth();
@@ -51,11 +55,14 @@ function AppRoutes() {
       <Route path="/admin/reports"        element={<Guard roles={['admin']}><Layout><AdminReports /></Layout></Guard>} />
       <Route path="/admin/reports/riders" element={<Guard roles={['admin']}><Layout><RidersReport /></Layout></Guard>} />
       <Route path="/admin/reports/network" element={<Guard roles={['admin']}><Layout><NetworkReport /></Layout></Guard>} />
+      <Route path="/admin/reports/rider-performance" element={<Guard roles={['admin']}><Layout><RiderPerformanceReport /></Layout></Guard>} />
+      <Route path="/admin/reports/complaints" element={<Guard roles={['admin']}><Layout><ComplaintsReport /></Layout></Guard>} />
 
       {/* Route Owner */}
       <Route path="/owner"                   element={<Guard roles={['route_owner']}><Layout><OwnerDashboard /></Layout></Guard>} />
       <Route path="/owner/riders"            element={<Guard roles={['route_owner']}><Layout><OwnerRiders /></Layout></Guard>} />
       <Route path="/owner/complaints"        element={<Guard roles={['route_owner']}><Layout><OwnerComplaints /></Layout></Guard>} />
+      <Route path="/owner/reports/*"         element={<Guard roles={['route_owner']}><Layout><OwnerReports /></Layout></Guard>} />
       <Route path="/owner/routes"            element={<Guard roles={['route_owner']}><Layout><MasterRoutes base="/owner" /></Layout></Guard>} />
       <Route path="/owner/routes/new"        element={<Guard roles={['route_owner']}><Layout><CreateRoute base="/owner" /></Layout></Guard>} />
       <Route path="/owner/routes/:id"        element={<Guard roles={['route_owner']}><Layout><RouteDetail base="/owner" /></Layout></Guard>} />
@@ -64,6 +71,7 @@ function AppRoutes() {
       {/* Rider */}
       <Route path="/rider"                        element={<Guard roles={['rider']}><Layout><RiderDashboard /></Layout></Guard>} />
       <Route path="/rider/navigate/:routeId"      element={<Guard roles={['rider']}><Layout><RiderNavigate /></Layout></Guard>} />
+      <Route path="/rider/reports/*"              element={<Guard roles={['rider']}><Layout><RiderReports /></Layout></Guard>} />
 
       {/* anything else: back to the user's home (or the login page) */}
       <Route path="*" element={<Navigate to={home} replace />} />
