@@ -2,18 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { ReportsNav } from './Reports';
+import { time, weekKey, weekLabel, pct, grid, MUTED, SELECT, Outcome, Table } from '../../components/ReportBits';
 
 // KAN-43: one row per route owner for a delivery week, with a total row; click an owner for their routes that week.
 // The server sends every route of the week; the totals per owner are worked out here, so the region, city and owner
 // filters, the owner rows and the total row always agree. ?week=2026-47&owner=3 keeps the view in the address.
 // Missed stops need KAN-28 (riders can't mark a stop missed yet), so that column shows "—" for now.
-
-const TZ = { timeZone:'Europe/Helsinki' };
-const day = (d, o) => new Date(d).toLocaleDateString('en-GB', { ...TZ, ...o });
-const time = d => new Date(d).toLocaleString('en-GB', { ...TZ, weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-const weekKey = w => `${w.iso_year}-${w.iso_week}`;
-const weekLabel = w => `Week ${w.iso_week}, ${w.iso_year} · ${day(w.window_start, { day:'numeric', month:'short' })}–${day(w.window_end, { day:'numeric', month:'short' })}${w.finished ? '' : ' (window open)'}`;
-const pct = (n, of) => of ? `${Math.round(n * 100 / of)}%` : '—';
 
 // totals of some route rows
 const total = rows => rows.reduce((t, r) => {
@@ -31,29 +25,12 @@ const OWNER_COLUMNS = [['Route owner', '1.5fr'], ['Cities', '1.3fr'], ['Routes',
   ['On time', '0.7fr'], ['Missed', '0.6fr'], ['Open complaints', '0.9fr'], ['Resolved complaints', '0.9fr']];
 const ROUTE_COLUMNS = [['Route', '1.5fr'], ['City', '1fr'], ['Rider', '1.2fr'], ['Start', '1.2fr'], ['Finish', '1.2fr'],
   ['Delivered', '1fr'], ['On time', '0.7fr'], ['Missed', '0.6fr'], ['Outcome', '1.6fr'], ['Open complaints', '0.8fr'], ['Resolved complaints', '0.8fr']];
-const grid = cols => ({ display:'grid', gridTemplateColumns: cols.map(([, w]) => w).join(' '), gap:8, alignItems:'center', padding:'10px 14px' });
-const HEAD = { background:'var(--el)', fontSize:10, fontWeight:600, color:'var(--mut)', textTransform:'uppercase', letterSpacing:'0.06em' };
-const MUTED = { color:'var(--mut)' };
-const SELECT = { padding:'9px 12px', fontSize:13 };
 
 // open = open or accepted; withdrawn ones are not counted
 const Complaints = ({ t }) => <>
   <span style={t.complaints_open ? { color:'var(--red)', fontWeight:600 } : MUTED}>{t.complaints_open}</span>
   <span style={t.complaints_resolved ? null : MUTED}>{t.complaints_resolved}</span>
 </>;
-
-function Outcome({ r }) {
-  const label = { completed:'Completed', force_ended:'Completed (force-ended)', in_progress:'In progress', not_run:'Not run' }[r.outcome];
-  const badge = { completed:'completed', force_ended:'completed', in_progress:'ongoing', not_run:'not_started' }[r.outcome];
-  return (
-    <span style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3 }}>
-      <span className={`badge badge-${badge}`}>{label}</span>
-      {r.outcome === 'force_ended' && r.ended_by_name && <span style={{ ...MUTED, fontSize:11 }}>by {r.ended_by_name}</span>}
-      {r.outside_window && <span style={{ color:'var(--amb)', fontSize:11 }}>Outside window</span>}
-      {r.attempt_count > 1 && <span style={{ ...MUTED, fontSize:11 }}>Attempt {r.attempt} of {r.attempt_count}</span>}
-    </span>
-  );
-}
 
 // the columns after the owner's name; the total row has no cities
 const OwnerCells = ({ t, cities }) => <>
@@ -70,18 +47,6 @@ const OwnerCells = ({ t, cities }) => <>
   <span style={MUTED}>—</span>
   <Complaints t={t} />
 </>;
-
-function Table({ columns, minWidth, children }) {
-  // the table scrolls sideways inside its box on a phone; the page itself never does
-  return (
-    <div style={{ background:'var(--card)', border:'1px solid var(--border)', borderRadius:16, overflowX:'auto' }}>
-      <div style={{ minWidth }}>
-        <div style={{ ...grid(columns), ...HEAD }}>{columns.map(([label]) => <span key={label}>{label}</span>)}</div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export default function NetworkReport() {
   const navigate = useNavigate();

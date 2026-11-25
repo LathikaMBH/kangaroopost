@@ -62,12 +62,14 @@ test('AC1 defaults to the latest finished week, one row per route owner with the
 
 test('AC2 an owner with no routes shows with zeros', async ({ page }) => {
   await open(page);
+  await expect(page.getByTestId('owner-row')).toHaveCount(3);
   expect(await cells(ownerRow(page, 'Nora Owner'))).toEqual(
     ['Nora Owner', '—', '0', '0', '0', '0', '0', '0', '0', '—', '—', '—', '0', '0']);
 });
 
 test('AC3 the total row adds up the owners shown', async ({ page }) => {
   await open(page);
+  await expect(page.getByTestId('owner-row')).toHaveCount(3);
   expect(await cells(page.getByTestId('total-row'))).toEqual(
     ['Total', '', '4', '1', '1', '1', '1', '1', '1', '70%', '86%', '—', '1', '2']);
 });

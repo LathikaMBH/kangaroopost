@@ -77,4 +77,13 @@ export default {
   // Admin reports (KAN-14)
   getRidersDirectory: ()    => api.get('/admin/reports/riders'),
   getNetworkReport:   (week) => api.get('/admin/reports/network', { params: week ? { week } : {} }),
+  getRiderPerformance: (range) => api.get('/admin/reports/rider-performance', { params: range }), // range: { from, to }
+  getComplaintsOverview: (range) => api.get('/admin/reports/complaints', { params: range }),
+  // Route owner reports (KAN-13)
+  getOwnerWeekly:     (week) => api.get('/owner/reports/weekly', { params: week ? { week } : {} }),
+  getOwnerRiderPerformance: (range) => api.get('/owner/reports/rider-performance', { params: range }),
+  getOwnerComplaintsLog: (range) => api.get('/owner/reports/complaints', { params: range }),
+  // Rider reports (KAN-41)
+  getMyWeek:          ()       => api.get('/rider/reports/week'),
+  getMyHistory:       (before) => api.get('/rider/reports/history', { params: before ? { before } : {} }),
 };
