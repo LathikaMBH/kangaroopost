@@ -341,7 +341,7 @@ const queries = {
            COALESCE(rr.outside_window, false) AS outside_window, rr.attempt, rr.attempt_count,
            CASE WHEN rr.id IS NULL THEN 'not_run' WHEN rr.finished_at IS NULL THEN 'in_progress'
                 WHEN rr.ended_by_role IN ('route_owner','admin') THEN 'force_ended' ELSE 'completed' END AS outcome,
-           st.stops, st.delivered, st.on_time, st.missed, cp.complaints_open, cp.complaints_resolved
+           st.stops, st.delivered, st.on_time, st.missed, st.time_adjusted, cp.complaints_open, cp.complaints_resolved
     FROM base b
     LEFT JOIN rr ON rr.route_id = b.route_id
     LEFT JOIN users ow ON ow.id = b.owner_id
@@ -349,7 +349,8 @@ const queries = {
     LEFT JOIN regions rg ON rg.id = ci.region_id
     CROSS JOIN LATERAL (
       SELECT COUNT(*)::int AS stops, COUNT(*) FILTER (WHERE delivered)::int AS delivered,
-             COUNT(*) FILTER (WHERE on_time)::int AS on_time, COUNT(*) FILTER (WHERE missed)::int AS missed
+             COUNT(*) FILTER (WHERE on_time)::int AS on_time, COUNT(*) FILTER (WHERE missed)::int AS missed,
+             COUNT(*) FILTER (WHERE time_adjusted)::int AS time_adjusted
       FROM run_stops WHERE run_id = rr.id) st
     CROSS JOIN LATERAL (
       SELECT COUNT(*) FILTER (WHERE status IN ('open','accepted'))::int AS complaints_open,
@@ -358,6 +359,88 @@ const queries = {
     ORDER BY owner_name, b.route_name`, [Number(iso_year), Number(iso_week), window_end]),
 
   getOwnerNames: () => many(`SELECT id, name FROM users WHERE role = 'route_owner' ORDER BY name`),
+
+  // KAN-47/44: everyone who delivers (riders, and route owners with the Rider role) with the owner they ride for;
+  // owner_id narrows it to one owner's riders
+  getRiderNames: (owner_id = null) => many(`
+    SELECT u.id, u.name, ow.id AS owner_id, ow.name AS owner_name
+    FROM users u JOIN users ow ON ow.id = CASE WHEN u.role = 'rider' THEN u.owner_id ELSE u.id END
+    WHERE (u.role = 'rider' OR (u.role = 'route_owner' AND u.can_ride)) AND ($1::int IS NULL OR ow.id = $1)
+    ORDER BY u.name`, [owner_id == null ? null : Number(owner_id)]),
+
+  // The current ISO week (Finnish time) and its window, whether or not the window has opened
+  getCurrentWeek: () => one(`
+    SELECT EXTRACT(isoyear FROM now() AT TIME ZONE 'Europe/Helsinki')::int AS iso_year,
+           EXTRACT(week FROM now() AT TIME ZONE 'Europe/Helsinki')::int AS iso_week,
+           kd_window_start(now()) AS window_start, kd_window_end(now()) AS window_end, kd_window_end(now()) < now() AS finished`),
+
+  // KAN-47/44/41: the reported runs (the last attempt of a route in a week), newest first, with their stop counts and
+  // complaints (withdrawn left out). Weeks are compared as year * 100 + week, e.g. 202647.
+  //   from, to   : week keys (inclusive)          owner_id / rider_id : only that owner's routes / that rider's runs
+  //   since      : started after this time        before / limit      : one page of a long history
+  // Names come from the users table while the person exists, else the copy on the run (a deleted rider keeps their name).
+  // not_delivered: the stop numbers not delivered on a finished run, or marked missed (KAN-28).
+  getRuns: ({ from = null, to = null, owner_id = null, rider_id = null, since = null, before = null, limit = null } = {}) => many(`
+    SELECT r.id AS run_id, r.iso_year, r.iso_week, r.route_id, r.route_name, r.owner_id, COALESCE(ow.name, r.owner_name) AS owner_name,
+           r.city_id, COALESCE(ci.name, r.city_name) AS city_name, rg.id AS region_id, rg.name AS region_name,
+           r.rider_id, COALESCE(rd.name, r.rider_name) AS rider_name, r.started_at, r.finished_at, r.ended_by_name,
+           r.outside_window, r.attempt, r.attempt_count,
+           CASE WHEN r.finished_at IS NULL THEN 'in_progress'
+                WHEN r.ended_by_role IN ('route_owner','admin') THEN 'force_ended' ELSE 'completed' END AS outcome,
+           st.stops, st.delivered, st.on_time, st.missed, st.time_adjusted, st.not_delivered,
+           (SELECT COUNT(*)::int FROM complaints c WHERE c.run_id = r.id AND c.status <> 'withdrawn') AS complaints
+    FROM run_attempts r
+    LEFT JOIN users ow ON ow.id = r.owner_id
+    LEFT JOIN users rd ON rd.id = r.rider_id
+    LEFT JOIN cities ci ON ci.id = r.city_id
+    LEFT JOIN regions rg ON rg.id = ci.region_id
+    CROSS JOIN LATERAL (
+      SELECT COUNT(*)::int AS stops, COUNT(*) FILTER (WHERE delivered)::int AS delivered,
+             COUNT(*) FILTER (WHERE on_time)::int AS on_time, COUNT(*) FILTER (WHERE missed)::int AS missed,
+             COUNT(*) FILTER (WHERE time_adjusted)::int AS time_adjusted,
+             COALESCE(array_agg(order_num ORDER BY order_num) FILTER (WHERE missed OR (NOT delivered AND r.finished_at IS NOT NULL)), '{}') AS not_delivered
+      FROM run_stops WHERE run_id = r.id) st
+    WHERE NOT r.superseded
+      AND ($1::int IS NULL OR r.iso_year * 100 + r.iso_week >= $1) AND ($2::int IS NULL OR r.iso_year * 100 + r.iso_week <= $2)
+      AND ($3::int IS NULL OR r.owner_id = $3) AND ($4::int IS NULL OR r.rider_id = $4)
+      AND ($5::timestamptz IS NULL OR r.started_at > $5) AND ($6::timestamptz IS NULL OR r.started_at < $6)
+    ORDER BY r.started_at DESC
+    LIMIT $7`,
+    [from, to, owner_id == null ? null : Number(owner_id), rider_id == null ? null : Number(rider_id), since, before, limit]),
+
+  // KAN-48/45/44: the complaints of a range of weeks, newest first. A complaint belongs to its delivery week, or, when it
+  // has none (filed before KAN-39), to the week it was filed in. withdrawn: include withdrawn ones (KAN-48, KAN-45).
+  // hours_to_resolve: from filing to resolved.
+  getComplaintsInWeeks: ({ from, to, owner_id = null, rider_id = null, withdrawn = false }) => many(`
+    SELECT c.id, c.owner_id, ow.name AS owner_name, c.rider_id, rd.name AS rider_name, c.route_id, c.route_name,
+           c.city_id, COALESCE(ci.name, c.city_name) AS city_name, rg.id AS region_id, rg.name AS region_name,
+           c.address, c.status, c.iso_year, c.iso_week, c.created_at, c.accepted_at, c.resolved_at,
+           c.withdrawn_at, c.withdrawn_by_name,
+           CASE WHEN c.resolved_at IS NOT NULL THEN (EXTRACT(epoch FROM c.resolved_at - c.created_at) / 3600)::float8 END AS hours_to_resolve
+    FROM complaints c
+    LEFT JOIN users ow ON ow.id = c.owner_id
+    LEFT JOIN users rd ON rd.id = c.rider_id
+    LEFT JOIN cities ci ON ci.id = c.city_id
+    LEFT JOIN regions rg ON rg.id = ci.region_id
+    WHERE COALESCE(c.iso_year * 100 + c.iso_week,
+                   EXTRACT(isoyear FROM c.created_at AT TIME ZONE 'Europe/Helsinki')::int * 100
+                   + EXTRACT(week FROM c.created_at AT TIME ZONE 'Europe/Helsinki')::int) BETWEEN $1 AND $2
+      AND ($3::int IS NULL OR c.owner_id = $3) AND ($4::int IS NULL OR c.rider_id = $4)
+      AND ($5::boolean OR c.status <> 'withdrawn')
+    ORDER BY c.created_at DESC`,
+    [from, to, owner_id == null ? null : Number(owner_id), rider_id == null ? null : Number(rider_id), !!withdrawn]),
+
+  // KAN-42: an owner's stops in one week that were not delivered (on a finished run) or were marked missed (KAN-28),
+  // from the reported runs. delivered_later: marked missed, then delivered after all.
+  getWeekMissedStops: (iso_year, iso_week, owner_id) => many(`
+    SELECT r.route_id, r.route_name, r.id AS run_id, r.rider_id, COALESCE(rd.name, r.rider_name) AS rider_name,
+           rs.stop_id, rs.order_num, rs.address, rs.type, rs.missed, rs.missed_at, rs.delivered AS delivered_later, rs.delivered_at
+    FROM run_attempts r
+    JOIN run_stops rs ON rs.run_id = r.id
+    LEFT JOIN users rd ON rd.id = r.rider_id
+    WHERE NOT r.superseded AND r.iso_year = $1 AND r.iso_week = $2 AND r.owner_id = $3
+      AND (rs.missed OR (NOT rs.delivered AND r.finished_at IS NOT NULL))
+    ORDER BY r.route_name, rs.order_num`, [Number(iso_year), Number(iso_week), Number(owner_id)]),
 
   getRidersDirectory: () => many(`
     SELECT u.id, u.name, u.role, u.created_at, ow.id AS owner_id, ow.name AS owner_name,

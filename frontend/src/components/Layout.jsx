@@ -20,6 +20,7 @@ export default function Layout({ children }) {
     { icon:'ti-home',    label:'Home',   path:'/owner' },
     { icon:'ti-map-2',   label:'Routes', path:'/owner/routes' },
     { icon:'ti-users',   label:'Riders', path:'/owner/riders' },
+    { icon:'ti-report-analytics', label:'Reports', path:'/owner/reports' },
   ];
 
   const isAdmin = user?.role === 'admin';
@@ -68,6 +69,9 @@ export default function Layout({ children }) {
         <nav className="bottom-nav">
           <button className={`nav-btn ${loc.pathname==='/rider'?'active':''}`} onClick={() => navigate('/rider')}>
             <i className="ti ti-home" /><span>Home</span>
+          </button>
+          <button className={`nav-btn ${loc.pathname.startsWith('/rider/reports')?'active':''}`} onClick={() => navigate('/rider/reports')}>
+            <i className="ti ti-report-analytics" /><span>My reports</span>
           </button>
           <button className="nav-btn" onClick={() => { logout(); navigate('/login'); }}>
             <i className="ti ti-logout" /><span>Logout</span>
