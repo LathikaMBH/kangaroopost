@@ -13,7 +13,7 @@ const route = (o) => ({
   complaints_open: 0, complaints_resolved: 0, ...o,
 });
 const ROUTES = [
-  route({ route_id: 1, route_name: 'Kortela', complaints_open: 1 }),
+  route({ route_id: 1, route_name: 'Kortela', complaints_open: 1, any_order: true }),
   route({ route_id: 2, route_name: 'Unaja', run_id: 2, outcome: 'force_ended', ended_by_name: 'Leena Owner', delivered: 6, on_time: 3,
           outside_window: true, attempt: 2, attempt_count: 2, time_adjusted: 1, complaints_resolved: 2 }),
   route({ route_id: 3, route_name: 'Lappi 1', run_id: null, rider_id: null, rider_name: null, started_at: null, finished_at: null,
@@ -90,6 +90,12 @@ test('KAN-42 AC2 a force-ended route counts as completed, with who ended it, the
   await expect(unaja).toContainText('Attempt 2 of 2');
   await expect(unaja).toContainText('Time adjusted');
   await expect(card(page, 'route-card', 'Lappi 1')).toContainText('Not run');
+  await expect(unaja).not.toContainText('Any order');
+});
+
+test('KAN-55 a run delivered in any order shows the "Any order" marker', async ({ page }) => {
+  await open(page, '/owner/reports');
+  await expect(card(page, 'route-card', 'Kortela')).toContainText('Any order');
 });
 
 test('KAN-42 AC3 filtering by route or rider updates the cards and totals, and an open week is flagged', async ({ page }) => {
