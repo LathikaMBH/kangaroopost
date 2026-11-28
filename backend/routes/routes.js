@@ -104,6 +104,7 @@ router.put('/:id/road-path', auth, wrap(async (req, res) => {
   const stopCount = (await queries.getStopsByRoute(route.id)).length;
   if (legs.length !== stopCount - 1) return res.status(409).json({ error: 'The stops changed; recompute the road path' });
   await queries.setRoadPath(route.id, { key, mode, legs, meters: Number.isFinite(Number(meters)) ? Math.round(Number(meters)) : null });
+  await queries.refreshSides(route.id);   // KAN-55: the boxes' sides of the road follow the new path
   res.json({ success: true });
 }));
 

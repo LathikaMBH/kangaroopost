@@ -1,6 +1,8 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const { ADMIN_EMAIL, ADMIN_PASSWORD, isProd } = require('./config');
+const { isCurrent } = require('./lib/roadPath');
+const { routeSides } = require('./lib/roadSide');
 
 const pool = new Pool(
   process.env.DATABASE_URL
@@ -251,11 +253,26 @@ ALTER TABLE complaints ADD COLUMN IF NOT EXISTS withdrawn_by_role TEXT;
 ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;
 ALTER TABLE complaints ADD CONSTRAINT complaints_status_check CHECK (status IN ('open','accepted','resolved','withdrawn'));
 CREATE INDEX IF NOT EXISTS idx_complaints_week ON complaints(iso_year, iso_week);
+
+-- KAN-55: delivering in any order. side_bearing: the compass bearing from the road to the mailbox (lib/roadSide.js),
+-- worked out from the saved road path, or set by the owner (side_manual, kept when the path is worked out again).
+-- NULL = no side: the box is marked whichever way the rider goes. Runs: order_mode is the mode now (the rider can
+-- switch during the run); any_order is set once the run was ever in any order mode (reports show "Any order").
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS side_bearing DOUBLE PRECISION;
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS side_manual  BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE runs  ADD COLUMN IF NOT EXISTS order_mode   TEXT NOT NULL DEFAULT 'saved';
+ALTER TABLE runs  ADD COLUMN IF NOT EXISTS any_order    BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE runs DROP CONSTRAINT IF EXISTS runs_order_mode_check;
+ALTER TABLE runs ADD CONSTRAINT runs_order_mode_check CHECK (order_mode IN ('saved','any'));
 `;
 
 async function init() {
   await q(SCHEMA);
   console.log('✅ Database schema ready');
+  // KAN-55, once: the sides of the boxes on routes that already have a road path (new paths work them out when saved)
+  if ((await q("INSERT INTO data_seeds (name) VALUES ('kan-55-box-sides') ON CONFLICT DO NOTHING")).rowCount) {
+    for (const { id } of await many('SELECT id FROM routes WHERE road_path IS NOT NULL')) await queries.refreshSides(id);
+  }
   const admin = await one('SELECT id FROM users WHERE email = $1', [ADMIN_EMAIL]);
   if (!admin) {
     if (!ADMIN_PASSWORD) throw new Error('No admin account exists yet: set ADMIN_EMAIL and ADMIN_PASSWORD to create the first admin');
@@ -275,7 +292,8 @@ const ROUTE_SELECT = `
          r.city_id, r.created_by, ci.name AS city_name, ci.region_id, rg.name AS region_name,
          rd.name AS rider_name, ow.name AS owner_name,
          (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id)                 AS stop_count,
-         (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.delivered) AS delivered_count
+         (SELECT COUNT(*)::int FROM stops s WHERE s.route_id = r.id AND s.delivered) AS delivered_count,
+         (SELECT x.order_mode FROM runs x WHERE x.route_id = r.id AND x.finished_at IS NULL) AS order_mode
   FROM routes r
   LEFT JOIN users rd ON rd.id = r.rider_id
   LEFT JOIN users ow ON ow.id = r.owner_id
@@ -338,7 +356,7 @@ const queries = {
     SELECT b.route_id, b.route_name, b.owner_id, COALESCE(ow.name, rr.owner_name) AS owner_name,
            b.city_id, COALESCE(ci.name, rr.city_name) AS city_name, rg.id AS region_id, rg.name AS region_name,
            rr.id AS run_id, rr.rider_id, rr.rider_name, rr.started_at, rr.finished_at, rr.ended_by_name,
-           COALESCE(rr.outside_window, false) AS outside_window, rr.attempt, rr.attempt_count,
+           COALESCE(rr.outside_window, false) AS outside_window, rr.attempt, rr.attempt_count, COALESCE(rr.any_order, false) AS any_order,
            CASE WHEN rr.id IS NULL THEN 'not_run' WHEN rr.finished_at IS NULL THEN 'in_progress'
                 WHEN rr.ended_by_role IN ('route_owner','admin') THEN 'force_ended' ELSE 'completed' END AS outcome,
            st.stops, st.delivered, st.on_time, st.missed, st.time_adjusted, cp.complaints_open, cp.complaints_resolved
@@ -384,7 +402,7 @@ const queries = {
     SELECT r.id AS run_id, r.iso_year, r.iso_week, r.route_id, r.route_name, r.owner_id, COALESCE(ow.name, r.owner_name) AS owner_name,
            r.city_id, COALESCE(ci.name, r.city_name) AS city_name, rg.id AS region_id, rg.name AS region_name,
            r.rider_id, COALESCE(rd.name, r.rider_name) AS rider_name, r.started_at, r.finished_at, r.ended_by_name,
-           r.outside_window, r.attempt, r.attempt_count,
+           r.outside_window, r.attempt, r.attempt_count, r.any_order,
            CASE WHEN r.finished_at IS NULL THEN 'in_progress'
                 WHEN r.ended_by_role IN ('route_owner','admin') THEN 'force_ended' ELSE 'completed' END AS outcome,
            st.stops, st.delivered, st.on_time, st.missed, st.time_adjusted, st.not_delivered,
@@ -596,10 +614,26 @@ const queries = {
     finally { client.release(); }
   },
 
+  // a moved box loses its side (also one the owner set): it is worked out again with the new road path
   updateStop: (id, address, lat, lng, type, order_num) => one(
-    'UPDATE stops SET address = $2, lat = $3, lng = $4, type = $5, order_num = $6 WHERE id = $1 RETURNING *',
+    `UPDATE stops SET address = $2, lat = $3, lng = $4, type = $5, order_num = $6,
+            side_bearing = CASE WHEN lat = $3 AND lng = $4 THEN side_bearing END,
+            side_manual  = CASE WHEN lat = $3 AND lng = $4 THEN side_manual ELSE false END
+     WHERE id = $1 RETURNING *`,
     [Number(id), address, lat, lng, type, order_num]
   ),
+
+  // KAN-55: the owner sets a box's side (bearing 0–360, or null = no side), or gives it back to the automatic one
+  // (manual false: worked out again the next time the road path is saved)
+  setStopSide: (id, bearing, manual) => one(
+    'UPDATE stops SET side_bearing = $2, side_manual = $3 WHERE id = $1 RETURNING *', [Number(id), bearing, manual]),
+
+  // the automatic sides of a route's boxes (sides: [{ id, bearing }]); boxes the owner set are left alone
+  setAutoSides: (route_id, sides) => q(
+    `UPDATE stops s SET side_bearing = t.bearing
+     FROM unnest($2::int[], $3::float8[]) AS t(id, bearing)
+     WHERE s.id = t.id AND s.route_id = $1 AND NOT s.side_manual`,
+    [Number(route_id), sides.map(s => s.id), sides.map(s => s.bearing)]),
 
   deleteStop: (id) => q('DELETE FROM stops WHERE id = $1', [Number(id)]),
 
@@ -607,7 +641,7 @@ const queries = {
   // Start: resets the stops and opens a new run with a copy of the route, its stops and the rider who started it.
   // The attempt number counts the route's runs in this ISO week. Returns null (nothing changed) while a run is open:
   // the rider ends the current round first.
-  startRun: (route_id, user) => tx(async (c) => {
+  startRun: (route_id, user, anyOrder = false) => tx(async (c) => {
     const id = Number(route_id);
     await c.query('SELECT id FROM routes WHERE id = $1 FOR UPDATE', [id]);
     if ((await c.query('SELECT 1 FROM runs WHERE route_id = $1 AND finished_at IS NULL', [id])).rowCount) return null;
@@ -618,13 +652,14 @@ const queries = {
                         EXTRACT(week    FROM now() AT TIME ZONE 'Europe/Helsinki')::int AS wk,
                         kd_window_start(now()) AS ws, kd_window_end(now()) AS we)
       INSERT INTO runs (route_id, route_name, owner_id, owner_name, city_id, city_name, rider_id, rider_name, iso_year, iso_week,
-                        window_start, window_end, outside_window, attempt, started_at)
+                        window_start, window_end, outside_window, attempt, started_at, order_mode, any_order)
       SELECT r.id, r.name, r.owner_id, ow.name, r.city_id, ci.name, $2, COALESCE(u.name, $3), w.y, w.wk, w.ws, w.we,
              NOT (now() BETWEEN w.ws AND w.we),
-             1 + COALESCE((SELECT MAX(x.attempt) FROM runs x WHERE x.route_id = r.id AND x.iso_year = w.y AND x.iso_week = w.wk), 0), now()
+             1 + COALESCE((SELECT MAX(x.attempt) FROM runs x WHERE x.route_id = r.id AND x.iso_year = w.y AND x.iso_week = w.wk), 0), now(),
+             CASE WHEN $4 THEN 'any' ELSE 'saved' END, $4
       FROM routes r CROSS JOIN w
       LEFT JOIN users ow ON ow.id = r.owner_id LEFT JOIN cities ci ON ci.id = r.city_id LEFT JOIN users u ON u.id = $2
-      WHERE r.id = $1 RETURNING *`, [id, Number(user.id), user.name || '']);
+      WHERE r.id = $1 RETURNING *`, [id, Number(user.id), user.name || '', Boolean(anyOrder)]);
     await c.query(`INSERT INTO run_stops (run_id, stop_id, order_num, address, type)
                    SELECT $1, id, order_num, address, type FROM stops WHERE route_id = $2`, [run.id, id]);
     return run;
@@ -645,6 +680,35 @@ const queries = {
       [run.id, Number(stop_id), at, received, method, adjusted, !run.outside_window && at >= run.window_start && at <= run.window_end]);
     return stop;
   }),
+
+  // KAN-55: the rider switches the run in progress between the saved order and any order. Returns the run, or null
+  // when there is none. any_order stays set once the run was in any order mode.
+  setOrderMode: (route_id, anyOrder) => one(
+    `UPDATE runs SET order_mode = CASE WHEN $2 THEN 'any' ELSE 'saved' END, any_order = any_order OR $2
+     WHERE route_id = $1 AND finished_at IS NULL RETURNING *`, [Number(route_id), Boolean(anyOrder)]),
+
+  // KAN-55: undo a delivery (a box marked by mistake) while the run is in progress. The run's copy of the stop is
+  // cleared too, so the next delivery of it is recorded. Returns the stop, or null when there is no run in progress.
+  undoDelivery: (stop_id, route_id) => tx(async (c) => {
+    await c.query('SELECT id FROM routes WHERE id = $1 FOR UPDATE', [Number(route_id)]);
+    const { rows: [run] } = await c.query('SELECT id FROM runs WHERE route_id = $1 AND finished_at IS NULL', [Number(route_id)]);
+    if (!run) return null;
+    const { rows: [stop] } = await c.query(
+      'UPDATE stops SET delivered = false, delivered_at = NULL, delivered_method = NULL WHERE id = $1 RETURNING *', [Number(stop_id)]);
+    await c.query(
+      `UPDATE run_stops SET delivered = false, delivered_at = NULL, received_at = NULL, method = NULL, on_time = false,
+              time_adjusted = false WHERE run_id = $1 AND stop_id = $2`, [run.id, Number(stop_id)]);
+    return stop;
+  }),
+
+  // KAN-55: work out the sides of a route's boxes again from its saved road path, when the path still matches the
+  // stops (a stale path is left alone; the app saves a new one, and that works the sides out)
+  refreshSides: async (route_id) => {
+    const [roadPath, stops] = [await queries.getRoadPath(route_id), await queries.getStopsByRoute(route_id)];
+    if (!isCurrent(roadPath, stops)) return false;
+    await queries.setAutoSides(route_id, routeSides(stops, roadPath.legs));
+    return true;
+  },
 
   // Completed by the rider (or an owner/admin force-ending it): the run is finished and from then on frozen
   finishRun: (route_id, user) => tx(async (c) => {

@@ -6,6 +6,7 @@ import MapCanvas, { MapFocus, CircleMarker, DotMarker, RouteLine } from '../../c
 import useRoadPath from '../../services/useRoadPath';
 import { MODE_WARNING } from '../../services/roads';
 import AreaPicker from '../../components/AreaPicker';
+import { sideLabel } from '../../services/anyOrder';
 
 const RAUMA = [61.1282, 21.5117]; // default map centre
 
@@ -110,6 +111,16 @@ export default function CreateRoute({ base = '/owner' }) {
     setStops(prev => prev.map(s => s.id === stop.id ? { ...s, address } : s));
   };
 
+  // KAN-55: the side of the road a box is on, for riders delivering in any order. Worked out from the road path;
+  // the owner can set it by hand ('auto' gives it back to the automatic one).
+  const setSide = async (stop, side) => {
+    try {
+      const updated = await api.setStopSide(stop.id, side);
+      setStops(prev => prev.map(s => s.id === stop.id ? { ...s, side_bearing: updated.side_bearing, side_manual: updated.side_manual } : s));
+    } catch (e) { alert(e?.error || 'Could not change the side'); }
+  };
+  const sideValue = s => !s.side_manual ? 'auto' : s.side_bearing == null ? 'none' : String((Math.round(s.side_bearing / 90) % 4) * 90);
+
   const saveRoute = async () => {
     if (!routeName.trim()) return alert('Please enter a route name');
     if (!cityId) return alert('Please choose the region and city of this route');
@@ -189,6 +200,20 @@ export default function CreateRoute({ base = '/owner' }) {
                   </button>
                   <button onClick={() => deleteStop(openStop)} style={{ padding:'5px 8px', borderRadius:8, border:'1px solid #f99', cursor:'pointer', fontSize:11, background:'#FEE2E2' }}>🗑</button>
                 </div>
+                {openStop.type === 'mailbox' && (
+                  <label style={{ display:'block', marginTop:8, fontSize:11, color:'#555' }}>
+                    Side of the road
+                    <select aria-label="Side of the road" value={sideValue(openStop)} style={{ display:'block', width:'100%', marginTop:3, border:'1px solid #ccc', borderRadius:6, padding:'4px 6px', fontSize:12 }}
+                      onChange={e => setSide(openStop, ['auto', 'none'].includes(e.target.value) ? e.target.value : Number(e.target.value))}>
+                      <option value="auto">Automatic{!openStop.side_manual ? ` (${sideLabel(openStop.side_bearing)})` : ''}</option>
+                      <option value="0">North side</option>
+                      <option value="90">East side</option>
+                      <option value="180">South side</option>
+                      <option value="270">West side</option>
+                      <option value="none">No side</option>
+                    </select>
+                  </label>
+                )}
               </div>
             </InfoWindow>
           )}

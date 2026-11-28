@@ -25,7 +25,8 @@ export const TOTAL_ROW = { fontSize:12, fontWeight:700, background:'var(--el)', 
 export const OUTCOME_LABEL = { completed:'Completed', force_ended:'Completed (force-ended)', in_progress:'In progress', not_run:'Not run' };
 const OUTCOME_BADGE = { completed:'completed', force_ended:'completed', in_progress:'ongoing', not_run:'not_started' };
 
-// outcome of one run, with who force-ended it, the outside-window flag, the attempt and a "time adjusted" marker
+// outcome of one run, with who force-ended it, the outside-window flag, the attempt and "time adjusted" and
+// "any order" (KAN-55) markers
 export function Outcome({ r }) {
   return (
     <span style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3 }}>
@@ -34,6 +35,7 @@ export function Outcome({ r }) {
       {r.outside_window && <span style={{ color:'var(--amb)', fontSize:11 }}>Outside window</span>}
       {r.attempt_count > 1 && <span style={{ ...MUTED, fontSize:11 }}>Attempt {r.attempt} of {r.attempt_count}</span>}
       {r.time_adjusted > 0 && <span style={{ ...MUTED, fontSize:11 }} title="A delivery time from the phone was corrected">Time adjusted</span>}
+      {r.any_order && <span style={{ ...MUTED, fontSize:11 }} title="The rider delivered the stops in their own order">Any order</span>}
     </span>
   );
 }

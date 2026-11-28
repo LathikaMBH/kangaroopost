@@ -59,11 +59,14 @@ export default {
   saveRoadPath:  (rid, d)   => api.put(`/routes/${rid}/road-path`, d),
   updateStop:    (id, d)    => api.put(`/stops/${id}`, d),
   deleteStop:    (id)       => api.delete(`/stops/${id}`),
+  setStopSide:   (id, side) => api.put(`/stops/${id}/side`, { side }),   // 'auto' | 'none' | bearing 0–359 (KAN-55)
   // Delivery
-  startRoute:    (id)       => api.post(`/delivery/start/${id}`),
+  startRoute:    (id, anyOrder = false) => api.post(`/delivery/start/${id}`, { any_order: anyOrder }),
+  setOrderMode:  (id, anyOrder) => api.post(`/delivery/mode/${id}`, { any_order: anyOrder }),   // KAN-55
   pauseRoute:    (id)       => api.post(`/delivery/pause/${id}`),
   resumeRoute:   (id)       => api.post(`/delivery/resume/${id}`),
   deliverStop:   (id, m)    => api.post(`/delivery/stop/${id}`, { method: m, delivered_at: new Date().toISOString() }), // the phone's delivery time
+  undoDelivery:  (id)       => api.post(`/delivery/stop/${id}/undo`),   // KAN-55
   endRoute:      (id)       => api.post(`/delivery/end/${id}`),
   pingLocation:  (d)        => api.post('/delivery/ping', d),
   // Missed-delivery complaints
